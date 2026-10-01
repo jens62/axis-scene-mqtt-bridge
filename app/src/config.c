@@ -1,0 +1,105 @@
+#include "config.h"
+
+#include <stdlib.h>
+#include <string.h>
+#include <syslog.h>
+
+static char* get_string(AXParameter* handle, const char* name) {
+    GError* error = NULL;
+    gchar* value  = NULL;
+
+    if (!ax_parameter_get(handle, name, &value, &error)) {
+        syslog(LOG_ERR, "Cannot read parameter %s: %s", name, error->message);
+        g_clear_error(&error);
+        return g_strdup("");
+    }
+    g_strstrip(value);
+    return value;
+}
+
+static bool get_bool(AXParameter* handle, const char* name) {
+    char* value = get_string(handle, name);
+    bool yes    = strcmp(value, "yes") == 0;
+    g_free(value);
+    return yes;
+}
+
+static int get_int(AXParameter* handle, const char* name, int fallback, int min) {
+    char* value = get_string(handle, name);
+    char* end   = NULL;
+    long n      = strtol(value, &end, 10);
+    int result  = (end != value && *end == '\0' && n >= min && n <= 65535 * 1000) ? (int)n
+                                                                                  : fallback;
+    g_free(value);
+    return result;
+}
+
+static double get_double(AXParameter* handle, const char* name, double fallback) {
+    char* value  = get_string(handle, name);
+    char* end    = NULL;
+    double d     = g_ascii_strtod(value, &end);
+    double result = (end != value && *end == '\0' && d >= 0.0) ? d : fallback;
+    g_free(value);
+    return result;
+}
+
+/** Axis host names are "axis-<MAC>", which equals "axis-<serial number>". */
+static char* default_prefix(AXParameter* handle) {
+    GError* error  = NULL;
+    gchar* serial  = NULL;
+
+    if (!ax_parameter_get(handle, "Properties.System.SerialNumber", &serial, &error)) {
+        syslog(LOG_WARNING, "Cannot read serial number: %s", error->message);
+        g_clear_error(&error);
+        return g_strdup("axis/unknown/bridge");
+    }
+    char* prefix = g_strdup_printf("axis/%s/bridge", serial);
+    g_free(serial);
+    return prefix;
+}
+
+bool config_load(AXParameter* handle, config_t* cfg) {
+    memset(cfg, 0, sizeof(*cfg));
+
+    cfg->mqtt_host     = get_string(handle, "MqttHost");
+    cfg->mqtt_port     = get_int(handle, "MqttPort", 1883, 1);
+    cfg->mqtt_user     = get_string(handle, "MqttUser");
+    cfg->mqtt_password = get_string(handle, "MqttPassword");
+    cfg->topic_prefix  = get_string(handle, "TopicPrefix");
+    if (cfg->topic_prefix[0] == '\0') {
+        g_free(cfg->topic_prefix);
+        cfg->topic_prefix = default_prefix(handle);
+    }
+    // No leading/trailing slashes, they would create empty topic levels.
+    g_strdelimit(cfg->topic_prefix, "#+", '_');
+    g_strstrip(cfg->topic_prefix);
+    size_t len = strlen(cfg->topic_prefix);
+    while (len > 0 && cfg->topic_prefix[len - 1] == '/')
+        cfg->topic_prefix[--len] = '\0';
+
+    cfg->publish_objects = get_bool(handle, "PublishObjects");
+    cfg->publish_audio   = get_bool(handle, "PublishAudio");
+    cfg->publish_motion  = get_bool(handle, "PublishMotion");
+    cfg->scene_topic     = get_string(handle, "SceneTopic");
+    cfg->scene_source    = get_string(handle, "SceneSource");
+    cfg->move_threshold  = get_double(handle, "MoveThreshold", 0.05);
+    cfg->min_interval_ms = get_int(handle, "MinIntervalMs", 1000, 0);
+    cfg->clear_timeout_s = get_int(handle, "ClearTimeoutSec", 3, 1);
+    cfg->audio_events    = get_string(handle, "AudioEvents");
+    cfg->motion_events   = get_string(handle, "MotionEvents");
+    cfg->event_keys      = get_string(handle, "EventKeys");
+    return true;
+}
+
+void config_free(config_t* cfg) {
+    g_free(cfg->mqtt_host);
+    g_free(cfg->mqtt_user);
+    g_free(cfg->mqtt_password);
+    g_free(cfg->topic_prefix);
+    g_free(cfg->scene_topic);
+    g_free(cfg->scene_source);
+    g_free(cfg->audio_events);
+    g_free(cfg->motion_events);
+    g_free(cfg->event_keys);
+    memset(cfg, 0, sizeof(*cfg));
+}

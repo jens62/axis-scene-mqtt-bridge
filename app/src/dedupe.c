@@ -1,0 +1,172 @@
+#include "dedupe.h"
+
+#include <jansson.h>
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+typedef struct {
+    char* signature;
+    double cx;
+    double cy;
+} track_t;
+
+struct dedupe {
+    GMutex lock;
+    double move_threshold;
+    gint64 min_interval_ms;
+    GHashTable* published;  // track id -> track_t*, state of the last published frame
+    gint64 last_publish_ms;
+    gint64 last_objects_ms;  // last frame that contained objects
+};
+
+static void track_free(gpointer p) {
+    track_t* t = p;
+    free(t->signature);
+    free(t);
+}
+
+static GHashTable* track_table_new(void) {
+    return g_hash_table_new_full(g_str_hash, g_str_equal, g_free, track_free);
+}
+
+static bool is_scored_name(const json_t* obj) {
+    return json_is_object(obj) && json_object_get(obj, "name") != NULL &&
+           json_object_get(obj, "score") != NULL;
+}
+
+/** Returns a new reference: the value without the parts that change on every frame. */
+static json_t* canonical(const json_t* value) {
+    if (json_is_object(value)) {
+        json_t* out = json_object();
+        const char* key;
+        json_t* child;
+        json_object_foreach((json_t*)value, key, child) {
+            if (strcmp(key, "score") == 0 || strcmp(key, "timestamp") == 0 ||
+                strcmp(key, "bounding_box") == 0)
+                continue;
+            json_t* c = canonical(child);
+            json_object_set_new(out, key, c);
+        }
+        return out;
+    }
+    if (json_is_array(value)) {
+        json_t* out = json_array();
+        size_t n    = json_array_size(value);
+        if (n > 0 && is_scored_name(json_array_get(value, 0))) {
+            // Sorted by score: only the best entry is stable enough to compare.
+            json_array_append_new(out, json_incref(json_object_get(json_array_get(value, 0), "name")));
+            return out;
+        }
+        for (size_t i = 0; i < n; i++)
+            json_array_append_new(out, canonical(json_array_get(value, i)));
+        return out;
+    }
+    return json_incref((json_t*)value);
+}
+
+static double number_or(const json_t* obj, const char* key, double fallback) {
+    const json_t* v = json_object_get(obj, key);
+    return json_is_number(v) ? json_number_value(v) : fallback;
+}
+
+static track_t* track_from_detection(const json_t* detection) {
+    track_t* t = calloc(1, sizeof(*t));
+    json_t* c  = canonical(detection);
+    t->signature = json_dumps(c, JSON_COMPACT | JSON_SORT_KEYS);
+    json_decref(c);
+
+    const json_t* box = json_object_get(detection, "bounding_box");
+    if (json_is_object(box)) {
+        t->cx = (number_or(box, "left", 0) + number_or(box, "right", 0)) / 2.0;
+        t->cy = (number_or(box, "top", 0) + number_or(box, "bottom", 0)) / 2.0;
+    }
+    return t;
+}
+
+dedupe_t* dedupe_new(double move_threshold, int min_interval_ms) {
+    dedupe_t* d       = calloc(1, sizeof(*d));
+    d->move_threshold = move_threshold;
+    d->min_interval_ms = min_interval_ms;
+    d->published      = track_table_new();
+    g_mutex_init(&d->lock);
+    return d;
+}
+
+void dedupe_free(dedupe_t* d) {
+    if (d == NULL)
+        return;
+    g_hash_table_destroy(d->published);
+    g_mutex_clear(&d->lock);
+    free(d);
+}
+
+bool dedupe_check(dedupe_t* d, const char* data, size_t len, gint64 now_ms) {
+    json_error_t err;
+    json_t* root = json_loadb(data, len, 0, &err);
+    if (root == NULL)
+        return true;  // not JSON we understand: never swallow it
+
+    json_t* detections = json_object_get(root, "detections");
+    if (!json_is_array(detections)) {
+        json_decref(root);
+        return true;
+    }
+
+    GHashTable* current = track_table_new();
+    size_t i;
+    json_t* det;
+    json_array_foreach(detections, i, det) {
+        const json_t* id = json_object_get(det, "object_track_id");
+        char fallback[32];
+        snprintf(fallback, sizeof(fallback), "#%zu", i);
+        char* key = g_strdup(json_is_string(id) ? json_string_value(id) : fallback);
+        g_hash_table_replace(current, key, track_from_detection(det));
+    }
+    json_decref(root);
+
+    g_mutex_lock(&d->lock);
+
+    bool changed = g_hash_table_size(current) != g_hash_table_size(d->published);
+    bool moved   = false;
+    GHashTableIter it;
+    gpointer k, v;
+    g_hash_table_iter_init(&it, current);
+    while (!changed && g_hash_table_iter_next(&it, &k, &v)) {
+        const track_t* cur  = v;
+        const track_t* prev = g_hash_table_lookup(d->published, k);
+        if (prev == NULL || strcmp(prev->signature, cur->signature) != 0)
+            changed = true;
+        else if (hypot(cur->cx - prev->cx, cur->cy - prev->cy) > d->move_threshold)
+            moved = true;
+    }
+
+    bool publish = changed || (moved && now_ms - d->last_publish_ms >= d->min_interval_ms);
+    if (publish) {
+        g_hash_table_destroy(d->published);
+        d->published       = current;
+        d->last_publish_ms = now_ms;
+        current            = NULL;
+    }
+    if (g_hash_table_size(current ? current : d->published) > 0)
+        d->last_objects_ms = now_ms;
+
+    g_mutex_unlock(&d->lock);
+    if (current != NULL)
+        g_hash_table_destroy(current);
+    return publish;
+}
+
+bool dedupe_expired(dedupe_t* d, gint64 now_ms, gint64 clear_timeout_ms) {
+    bool expired = false;
+
+    g_mutex_lock(&d->lock);
+    if (g_hash_table_size(d->published) > 0 && now_ms - d->last_objects_ms >= clear_timeout_ms) {
+        g_hash_table_remove_all(d->published);
+        d->last_publish_ms = now_ms;
+        expired            = true;
+    }
+    g_mutex_unlock(&d->lock);
+    return expired;
+}
