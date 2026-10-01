@@ -18,6 +18,7 @@ typedef struct {
 static AXEventHandler* handler;
 static GArray* subscriptions;  // guint ids
 static GPtrArray* contexts;    // subscription_ctx_t*
+static gint64 start_us;        // wall clock at subscription time, to recognise replayed states
 
 static void context_free(gpointer p) {
     subscription_ctx_t* ctx = p;
@@ -57,15 +58,28 @@ static json_t* read_value(const AXEventKeyValueSet* kvs, const char* key) {
     }
 }
 
+/** Topic levels are stored with a namespace, which the API wants when reading them back. */
+static gchar* read_topic_level(const AXEventKeyValueSet* kvs, const char* key) {
+    static const char* const namespaces[] = {"tnsaxis", "tns1", NULL};
+    gchar* level = NULL;
+
+    for (const char* const* ns = namespaces; *ns != NULL; ns++)
+        if (ax_event_key_value_set_get_string(kvs, key, *ns, &level, NULL))
+            return level;
+    if (ax_event_key_value_set_get_string(kvs, key, NULL, &level, NULL))
+        return level;
+    return NULL;
+}
+
 /** Builds "AudioClassification/Speech" from the keys topic0..topic3. */
 static char* read_topic_path(const AXEventKeyValueSet* kvs) {
     GString* path = g_string_new(NULL);
 
     for (int i = 0; i < MAX_TOPIC_LEVELS; i++) {
         char key[16];
-        gchar* level = NULL;
         snprintf(key, sizeof(key), "topic%d", i);
-        if (!ax_event_key_value_set_get_string(kvs, key, NULL, &level, NULL))
+        gchar* level = read_topic_level(kvs, key);
+        if (level == NULL)
             break;
         if (path->len > 0)
             g_string_append_c(path, '/');
@@ -92,6 +106,10 @@ static void on_event(guint subscription, AXEvent* event, gpointer user_data) {
     }
 
     json_t* root = json_pack("{s:s, s:s, s:o}", "time", time_str, "topic", topic_path, "data", data);
+    // On subscribe the camera replays the current state of stateful events with their old timestamp.
+    gint64 event_us = g_date_time_to_unix(stamp) * G_USEC_PER_SEC + g_date_time_get_microsecond(stamp);
+    if (event_us < start_us)
+        json_object_set_new(root, "initial", json_true());
     char* json   = json_dumps(root, JSON_COMPACT);
 
     char* sub_topic = g_strdup_printf("%s/%s", ctx->category, topic_path);
@@ -157,6 +175,7 @@ static void subscribe_list(const char* category, const char* specs_csv, const ch
 }
 
 bool events_start(const config_t* cfg) {
+    start_us      = g_get_real_time();
     handler       = ax_event_handler_new();
     subscriptions = g_array_new(FALSE, FALSE, sizeof(guint));
     contexts      = g_ptr_array_new_with_free_func(context_free);

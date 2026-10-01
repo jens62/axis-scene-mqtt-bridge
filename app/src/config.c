@@ -80,6 +80,7 @@ bool config_load(AXParameter* handle, config_t* cfg) {
     cfg->publish_objects = get_bool(handle, "PublishObjects");
     cfg->publish_audio   = get_bool(handle, "PublishAudio");
     cfg->publish_motion  = get_bool(handle, "PublishMotion");
+    cfg->publish_unclassified = get_bool(handle, "PublishUnclassified");
     cfg->scene_topic     = get_string(handle, "SceneTopic");
     cfg->scene_source    = get_string(handle, "SceneSource");
     cfg->move_threshold  = get_double(handle, "MoveThreshold", 0.05);

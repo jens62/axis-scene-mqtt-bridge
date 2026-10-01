@@ -33,7 +33,7 @@ static void on_parameter_changed(const gchar* name, const gchar* value, gpointer
 static void watch_parameters(AXParameter* handle) {
     static const char* const names[] = {
         "MqttHost", "MqttPort", "MqttUser", "MqttPassword", "TopicPrefix", "PublishObjects",
-        "PublishAudio", "PublishMotion", "SceneTopic", "SceneSource", "MoveThreshold",
+        "PublishAudio", "PublishMotion", "PublishUnclassified", "SceneTopic", "SceneSource", "MoveThreshold",
         "MinIntervalMs", "ClearTimeoutSec", "AudioEvents", "MotionEvents", "EventKeys",
     };
     for (size_t i = 0; i < G_N_ELEMENTS(names); i++)

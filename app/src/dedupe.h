@@ -6,7 +6,12 @@
 #include <stddef.h>
 
 /**
- * Decides which scene frames (com.axis.scene.frame.v1) are worth publishing.
+ * Decides which scene frames are worth publishing. Understands
+ *  - com.axis.scene.frame.v1:                      {"detections":[{"object_track_id":..,"class":{..}}]}
+ *  - com.axis.analytics_scene_description.v0.beta: {"frame":{"observations":[{"track_id":..,"class":{..}}]}}
+ *
+ * Objects without a "class" (fresh tracks, not yet classified) are ignored for the decision
+ * unless publish_unclassified is set; they trigger a publish as soon as they get a class.
  *
  * A frame arrives every ~100 ms and differs from its predecessor in the
  * timestamp, in the bounding boxes (objects move) and in classifier scores
@@ -20,7 +25,7 @@
  */
 typedef struct dedupe dedupe_t;
 
-dedupe_t* dedupe_new(double move_threshold, int min_interval_ms);
+dedupe_t* dedupe_new(double move_threshold, int min_interval_ms, bool publish_unclassified);
 void dedupe_free(dedupe_t* d);
 
 /** True if the frame should be published. now_ms is a monotonic clock. */

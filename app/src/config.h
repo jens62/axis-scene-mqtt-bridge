@@ -15,6 +15,7 @@ typedef struct {
     bool publish_objects;
     bool publish_audio;
     bool publish_motion;
+    bool publish_unclassified;  // objects without a class count as a change
     char* scene_topic;
     char* scene_source;
     double move_threshold;  // normalized (0..1) distance a track must move to be re-published

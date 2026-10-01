@@ -7,7 +7,7 @@ Developed against an AXIS M4228-LVE (aarch64, AXIS OS 12.x).
 
 | Source | MQTT topic | Published when |
 |---|---|---|
-| Object detection (`com.axis.scene.frame.v1`): class, clothing colors, ... | `<prefix>/objects` | a track appears/disappears, its class/attributes change, or it moved noticeably (rate limited) |
+| Object detection (class, clothing colors, ...) from the camera's scene description | `<prefix>/objects` | a track appears/disappears, its class/attributes change, or it moved noticeably (rate limited) |
 | Audio events (speech, shout, glass break, level reached, ...) | `<prefix>/audio/<event topic>` | the camera reports the event |
 | Motion events (VMD, object analytics, ...) | `<prefix>/motion/<event topic>` | the camera reports the event |
 | Status | `<prefix>/status` | `online` / `offline` (retained, last will) |
@@ -29,6 +29,29 @@ Developed against an AXIS M4228-LVE (aarch64, AXIS OS 12.x).
   without objects the app publishes `{"detections":[],"synthetic":true,...}`.
 
 The published payload is the camera's original JSON, untouched.
+
+Objects that have no `class` yet (fresh tracks before classification) do not count as a change,
+unless *Report objects that are not classified yet* is enabled. Faces arrive as their own objects
+(`class.type = "Face"`), not linked to a person.
+
+### Which scene topic?
+
+The camera only lets apps read three message broker topics (see the install log lines
+"Adding … to list of topics that are allowed to consume"). `SceneTopic` is a pull-down:
+
+| Topic | Use |
+|---|---|
+| `com.axis.analytics_scene_description.v0.beta` (default) | objects per frame with `class`, clothing/vehicle colours, bounding box |
+| `com.axis.consolidated_track.v1.beta` | one summary per object (not run through the change filter) |
+| `com.axis.radar.analytics_scene_description.v0.beta` | radar products only |
+| `com.axis.scene.frame.v1` | not on the allow-list for apps on the tested firmware; the camera's own MQTT publisher can send it |
+
+Replayed states: when the app subscribes, the camera sends the current state of stateful events
+once, with their old timestamp. Those messages carry `"initial":true`.
+
+Several event topics fire for one motion (for example `…/VMD/Camera1ProfileANY` and
+`…/VMD/Camera1Profile1`, plus `RuleEngine/MotionRegionDetector`). Trim `MotionEvents` if you
+only want one of them.
 
 Event payload:
 
@@ -79,7 +102,8 @@ camera, and install AXIS Audio Analytics for the audio classification events.
 | `MqttHost`, `MqttPort`, `MqttUser`, `MqttPassword` | – / 1883 | Broker. The app idles while `MqttHost` is empty. |
 | `TopicPrefix` | `axis/<serial>/bridge` | Topic prefix |
 | `PublishObjects`, `PublishAudio`, `PublishMotion` | yes | Switch sources on/off |
-| `SceneTopic`, `SceneSource` | `com.axis.scene.frame.v1`, `1` | Message broker topic and channel |
+| `SceneTopic`, `SceneSource` | `com.axis.analytics_scene_description.v0.beta`, `1` | Message broker topic (pull-down) and channel |
+| `PublishUnclassified` | no | Objects without a class count as a change |
 | `MoveThreshold` | 0.05 | Movement (normalized image units) that counts as a change |
 | `MinIntervalMs` | 1000 | Minimum interval for move-only updates |
 | `ClearTimeoutSec` | 3 | Seconds without objects until the empty scene is published |

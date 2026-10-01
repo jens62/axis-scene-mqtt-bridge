@@ -15,6 +15,7 @@ typedef struct {
 struct dedupe {
     GMutex lock;
     double move_threshold;
+    bool publish_unclassified;
     gint64 min_interval_ms;
     GHashTable* published;  // track id -> track_t*, state of the last published frame
     gint64 last_publish_ms;
@@ -85,9 +86,10 @@ static track_t* track_from_detection(const json_t* detection) {
     return t;
 }
 
-dedupe_t* dedupe_new(double move_threshold, int min_interval_ms) {
+dedupe_t* dedupe_new(double move_threshold, int min_interval_ms, bool publish_unclassified) {
     dedupe_t* d       = calloc(1, sizeof(*d));
     d->move_threshold = move_threshold;
+    d->publish_unclassified = publish_unclassified;
     d->min_interval_ms = min_interval_ms;
     d->published      = track_table_new();
     g_mutex_init(&d->lock);
@@ -102,14 +104,30 @@ void dedupe_free(dedupe_t* d) {
     free(d);
 }
 
+/** The list of objects, whichever message format the camera uses. NULL if this is no scene frame. */
+static json_t* object_list(json_t* root) {
+    json_t* list = json_object_get(root, "detections");
+    if (json_is_array(list))
+        return list;
+    list = json_object_get(json_object_get(root, "frame"), "observations");
+    return json_is_array(list) ? list : NULL;
+}
+
+static const char* track_id_of(const json_t* object) {
+    const json_t* id = json_object_get(object, "object_track_id");
+    if (!json_is_string(id))
+        id = json_object_get(object, "track_id");
+    return json_is_string(id) ? json_string_value(id) : NULL;
+}
+
 bool dedupe_check(dedupe_t* d, const char* data, size_t len, gint64 now_ms) {
     json_error_t err;
     json_t* root = json_loadb(data, len, 0, &err);
     if (root == NULL)
         return true;  // not JSON we understand: never swallow it
 
-    json_t* detections = json_object_get(root, "detections");
-    if (!json_is_array(detections)) {
+    json_t* detections = object_list(root);
+    if (detections == NULL) {
         json_decref(root);
         return true;
     }
@@ -118,10 +136,12 @@ bool dedupe_check(dedupe_t* d, const char* data, size_t len, gint64 now_ms) {
     size_t i;
     json_t* det;
     json_array_foreach(detections, i, det) {
-        const json_t* id = json_object_get(det, "object_track_id");
+        if (!d->publish_unclassified && json_object_get(det, "class") == NULL)
+            continue;
+        const char* id = track_id_of(det);
         char fallback[32];
         snprintf(fallback, sizeof(fallback), "#%zu", i);
-        char* key = g_strdup(json_is_string(id) ? json_string_value(id) : fallback);
+        char* key = g_strdup(id != NULL ? id : fallback);
         g_hash_table_replace(current, key, track_from_detection(det));
     }
     json_decref(root);

@@ -11,6 +11,7 @@ const status = document.getElementById("status");
 const password = document.getElementById("password");
 const clearPassword = document.getElementById("clear-password");
 const fields = Array.from(document.querySelectorAll("[data-param]"));
+const prefixField = document.querySelector('[data-param="TopicPrefix"]');
 
 let loaded = {};  // values as read from the camera, to send only what changed
 
@@ -19,15 +20,33 @@ function setStatus(text, kind) {
   status.className = kind || "";
 }
 
-function parseParams(text) {
+// The camera capitalizes the group name ("root.Axis_scene_mqtt_bridge"), so match case-insensitively.
+function parseParams(text, group) {
   const values = {};
-  const prefix = GROUP + ".";
+  const prefix = (group + ".").toLowerCase();
   for (const line of text.split(/\r?\n/)) {
     const eq = line.indexOf("=");
-    if (eq > 0 && line.startsWith(prefix))
+    if (eq > 0 && line.slice(0, prefix.length).toLowerCase() === prefix)
       values[line.slice(prefix.length, eq)] = line.slice(eq + 1);
   }
   return values;
+}
+
+async function listGroup(group) {
+  const res = await fetch(PARAM_CGI + "?action=list&group=" + encodeURIComponent(group),
+                          { credentials: "same-origin" });
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  return parseParams(await res.text(), group);
+}
+
+// Shows the topic prefix the app uses when the field is empty. Best effort only.
+async function showDefaultPrefix() {
+  try {
+    const serial = (await listGroup("root.Properties.System"))["SerialNumber"];
+    if (serial) prefixField.placeholder = "axis/" + serial + "/bridge";
+  } catch (err) {
+    // keep the generic placeholder
+  }
 }
 
 function readField(el) {
@@ -35,22 +54,29 @@ function readField(el) {
 }
 
 function writeField(el, value) {
-  if (el.type === "checkbox") el.checked = value === "yes";
-  else el.value = value;
+  if (el.type === "checkbox") {
+    el.checked = value === "yes";
+    return;
+  }
+  if (el.tagName === "SELECT" && value !== "" && !Array.from(el.options).some((o) => o.value === value)) {
+    const option = document.createElement("option");  // keep a stored value that is not in the list
+    option.value = value;
+    option.textContent = value;
+    el.appendChild(option);
+  }
+  el.value = value;
 }
 
 async function load() {
   setStatus("Loading…");
   try {
-    const res = await fetch(PARAM_CGI + "?action=list&group=" + encodeURIComponent(GROUP),
-                            { credentials: "same-origin" });
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    loaded = parseParams(await res.text());
+    loaded = await listGroup(GROUP);
     if (!("MqttHost" in loaded)) throw new Error("parameters not found, is the app installed?");
     for (const el of fields) writeField(el, loaded[el.dataset.param] ?? "");
     password.value = "";
     clearPassword.checked = false;
     setStatus("");
+    showDefaultPrefix();
   } catch (err) {
     setStatus("Could not load settings: " + err.message, "error");
   }

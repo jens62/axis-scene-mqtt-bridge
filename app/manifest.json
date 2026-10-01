@@ -8,7 +8,7 @@
             "vendorId": "1234567890",
             "vendorUrl": "https://github.com/jens62/axis-scene-mqtt-bridge",
             "runMode": "respawn",
-            "version": "0.1.0",
+            "version": "0.1.1",
             "compatibleOsVersions": [
                 {
                     "min": "12.2",
@@ -27,7 +27,8 @@
                 { "name": "PublishObjects", "default": "yes", "type": "bool:no,yes" },
                 { "name": "PublishAudio", "default": "yes", "type": "bool:no,yes" },
                 { "name": "PublishMotion", "default": "yes", "type": "bool:no,yes" },
-                { "name": "SceneTopic", "default": "com.axis.scene.frame.v1", "type": "string" },
+                { "name": "PublishUnclassified", "default": "no", "type": "bool:no,yes" },
+                { "name": "SceneTopic", "default": "com.axis.analytics_scene_description.v0.beta", "type": "string" },
                 { "name": "SceneSource", "default": "1", "type": "string" },
                 { "name": "MoveThreshold", "default": "0.05", "type": "string" },
                 { "name": "MinIntervalMs", "default": "1000", "type": "string" },
@@ -44,7 +45,7 @@
                 },
                 {
                     "name": "EventKeys",
-                    "default": "AudioSource,Detected,channel,triggered,active,state,port,Value,VideoSourceConfigurationToken,Rule,RuleName,Name",
+                    "default": "AudioSource,Detected,channel,triggered,active,state,State,IsMotion,port,Value,VideoSourceConfigurationToken,Rule,RuleName,Name",
                     "type": "string"
                 }
             ]

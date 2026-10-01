@@ -5,7 +5,7 @@ fieldset { background: #fff; border: 1px solid #ccc; border-radius: 3px; margin:
 legend { font-weight: bold; padding: 0 4px; }
 label { display: block; margin-top: 8px; }
 label.inline { display: flex; align-items: center; gap: 6px; }
-input[type=text], input[type=number], input[type=password], textarea {
+input[type=text], input[type=number], input[type=password], select, textarea {
   display: block; box-sizing: border-box; width: 100%; margin-top: 2px; padding: 5px; font: inherit;
   border: 1px solid #999; border-radius: 2px; }
 textarea { font-family: monospace; }
