@@ -42,6 +42,13 @@
           <label>Empty scene after (s) <input data-param="ClearTimeoutSec" type="number" min="1"></label>
         </fieldset>
         <fieldset>
+          <legend>Audio events</legend>
+          <label>Merge bursts: hold "off" for (s)
+            <input data-param="AudioHoldSec" type="number" min="0" step="1">
+            <span class="hint">The first "on" is sent at once, short pauses do not end the episode, "off" follows this many seconds
+              after the last burst. 0 sends every on/off the camera reports.</span></label>
+        </fieldset>
+        <fieldset>
           <legend>Sources</legend>
           <label>Scene topic
             <select data-param="SceneTopic">

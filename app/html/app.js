@@ -89,7 +89,7 @@ function validate(changes) {
     return Number.isFinite(n) && n >= min && n <= max ? null : key + " must be a number from " + min + " to " + max;
   };
   return num("MqttPort", 1, 65535) || num("MoveThreshold", 0, 10) ||
-         num("MinIntervalMs", 0, 3600000) || num("ClearTimeoutSec", 1, 86400);
+         num("MinIntervalMs", 0, 3600000) || num("AudioHoldSec", 0, 3600) || num("ClearTimeoutSec", 1, 86400);
 }
 
 async function save(event) {

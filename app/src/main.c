@@ -7,6 +7,10 @@
 #include "mqtt.h"
 #include "scene.h"
 
+#ifndef APP_VERSION
+#define APP_VERSION "unknown"
+#endif
+
 static GMainLoop* loop;
 
 static gboolean on_signal(gpointer user_data) {
@@ -34,7 +38,7 @@ static void watch_parameters(AXParameter* handle) {
     static const char* const names[] = {
         "MqttHost", "MqttPort", "MqttUser", "MqttPassword", "TopicPrefix", "PublishObjects",
         "PublishAudio", "PublishMotion", "PublishUnclassified", "SceneTopic", "SceneSource", "MoveThreshold",
-        "MinIntervalMs", "ClearTimeoutSec", "AudioEvents", "MotionEvents", "EventKeys",
+        "MinIntervalMs", "ClearTimeoutSec", "AudioHoldSec", "AudioEvents", "MotionEvents", "EventKeys",
     };
     for (size_t i = 0; i < G_N_ELEMENTS(names); i++)
         ax_parameter_register_callback(handle, names[i], on_parameter_changed, NULL, NULL);
@@ -50,8 +54,11 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
+    syslog(LOG_INFO, "%s %s started", APP_NAME, APP_VERSION);
+
     config_t cfg;
     config_load(handle, &cfg);
+    config_log(&cfg);
     watch_parameters(handle);
 
     loop = g_main_loop_new(NULL, FALSE);

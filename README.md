@@ -46,6 +46,12 @@ The camera only lets apps read three message broker topics (see the install log 
 | `com.axis.radar.analytics_scene_description.v0.beta` | radar products only |
 | `com.axis.scene.frame.v1` | not on the allow-list for apps on the tested firmware; the camera's own MQTT publisher can send it |
 
+Audio hold time: the camera's classifiers switch on and off in short bursts while someone talks.
+With `AudioHoldSec` (default 5) the first `Detected:true` is sent at once, further bursts are
+merged, and `Detected:false` follows that many seconds after the last burst (it then carries the
+time of that last "off"). `0` forwards every on/off. This applies to audio events with a
+`Detected` or `triggered` value, per event topic; motion events are not merged.
+
 Replayed states: when the app subscribes, the camera sends the current state of stateful events
 once, with their old timestamp. Those messages carry `"initial":true`.
 
@@ -103,6 +109,7 @@ camera, and install AXIS Audio Analytics for the audio classification events.
 | `TopicPrefix` | `axis/<serial>/bridge` | Topic prefix |
 | `PublishObjects`, `PublishAudio`, `PublishMotion` | yes | Switch sources on/off |
 | `SceneTopic`, `SceneSource` | `com.axis.analytics_scene_description.v0.beta`, `1` | Message broker topic (pull-down) and channel |
+| `AudioHoldSec` | 5 | Merge audio on/off bursts into one episode, 0 = off |
 | `PublishUnclassified` | no | Objects without a class count as a change |
 | `MoveThreshold` | 0.05 | Movement (normalized image units) that counts as a change |
 | `MinIntervalMs` | 1000 | Minimum interval for move-only updates |

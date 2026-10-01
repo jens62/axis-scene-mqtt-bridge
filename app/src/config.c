@@ -86,6 +86,7 @@ bool config_load(AXParameter* handle, config_t* cfg) {
     cfg->move_threshold  = get_double(handle, "MoveThreshold", 0.05);
     cfg->min_interval_ms = get_int(handle, "MinIntervalMs", 1000, 0);
     cfg->clear_timeout_s = get_int(handle, "ClearTimeoutSec", 3, 1);
+    cfg->audio_hold_s    = get_int(handle, "AudioHoldSec", 5, 0);
     cfg->audio_events    = get_string(handle, "AudioEvents");
     cfg->motion_events   = get_string(handle, "MotionEvents");
     cfg->event_keys      = get_string(handle, "EventKeys");
@@ -103,4 +104,19 @@ void config_free(config_t* cfg) {
     g_free(cfg->motion_events);
     g_free(cfg->event_keys);
     memset(cfg, 0, sizeof(*cfg));
+}
+
+void config_log(const config_t* cfg) {
+    syslog(LOG_INFO, "Broker %s:%d, user '%s', password %s", cfg->mqtt_host, cfg->mqtt_port,
+           cfg->mqtt_user, cfg->mqtt_password[0] != '\0' ? "set" : "not set");
+    syslog(LOG_INFO, "Topic prefix %s", cfg->topic_prefix);
+    syslog(LOG_INFO, "Publish: objects %s, audio %s, motion %s, unclassified objects %s",
+           cfg->publish_objects ? "yes" : "no", cfg->publish_audio ? "yes" : "no",
+           cfg->publish_motion ? "yes" : "no", cfg->publish_unclassified ? "yes" : "no");
+    syslog(LOG_INFO, "Scene topic %s, source %s", cfg->scene_topic, cfg->scene_source);
+    syslog(LOG_INFO, "Move threshold %.3f, min interval %d ms, empty scene after %d s, audio hold %d s",
+           cfg->move_threshold, cfg->min_interval_ms, cfg->clear_timeout_s, cfg->audio_hold_s);
+    syslog(LOG_INFO, "Audio events: %s", cfg->audio_events);
+    syslog(LOG_INFO, "Motion events: %s", cfg->motion_events);
+    syslog(LOG_INFO, "Event keys: %s", cfg->event_keys);
 }

@@ -8,7 +8,7 @@
             "vendorId": "1234567890",
             "vendorUrl": "https://github.com/jens62/axis-scene-mqtt-bridge",
             "runMode": "respawn",
-            "version": "0.1.1",
+            "version": "0.1.3",
             "compatibleOsVersions": [
                 {
                     "min": "12.2",
@@ -33,6 +33,7 @@
                 { "name": "MoveThreshold", "default": "0.05", "type": "string" },
                 { "name": "MinIntervalMs", "default": "1000", "type": "string" },
                 { "name": "ClearTimeoutSec", "default": "3", "type": "string" },
+                { "name": "AudioHoldSec", "default": "5", "type": "string" },
                 {
                     "name": "AudioEvents",
                     "default": "tnsaxis:AudioClassification, tnsaxis:AdaptiveAudioDetection, tns1:AudioSource/tnsaxis:TriggerLevel",
