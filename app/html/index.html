@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Scene MQTT Bridge</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <h1>Scene MQTT Bridge</h1>
+    <p class="hint">Publishes object detection, audio and motion events as JSON to an MQTT broker, only when something changes.
+      Saving restarts the application.</p>
+
+    <form id="form" autocomplete="off">
+      <fieldset>
+        <legend>MQTT broker</legend>
+        <label>Host <input data-param="MqttHost" type="text" placeholder="e.g. 192.168.0.10"></label>
+        <label>Port <input data-param="MqttPort" type="number" min="1" max="65535"></label>
+        <label>User <input data-param="MqttUser" type="text" autocomplete="off"></label>
+        <label>Password <input id="password" type="password" autocomplete="new-password" placeholder="leave empty to keep the current password"></label>
+        <label class="inline"><input id="clear-password" type="checkbox"> Remove the stored password</label>
+        <label>Topic prefix <input data-param="TopicPrefix" type="text" placeholder="axis/&lt;serial number&gt;/bridge"></label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Publish</legend>
+        <label class="inline"><input data-param="PublishObjects" type="checkbox"> Objects <code>&lt;prefix&gt;/objects</code></label>
+        <label class="inline"><input data-param="PublishAudio" type="checkbox"> Audio events <code>&lt;prefix&gt;/audio/…</code></label>
+        <label class="inline"><input data-param="PublishMotion" type="checkbox"> Motion events <code>&lt;prefix&gt;/motion/…</code></label>
+      </fieldset>
+
+      <details>
+        <summary>Advanced</summary>
+        <fieldset>
+          <legend>Object de-duplication</legend>
+          <label>Move threshold <input data-param="MoveThreshold" type="number" min="0" step="0.01">
+            <span class="hint">normalized image units a track must move to be re-published</span></label>
+          <label>Min. interval for movement updates (ms) <input data-param="MinIntervalMs" type="number" min="0" step="100"></label>
+          <label>Empty scene after (s) <input data-param="ClearTimeoutSec" type="number" min="1"></label>
+        </fieldset>
+        <fieldset>
+          <legend>Sources</legend>
+          <label>Scene topic <input data-param="SceneTopic" type="text"></label>
+          <label>Scene source (channel) <input data-param="SceneSource" type="text"></label>
+          <label>Audio events <textarea data-param="AudioEvents" rows="3"></textarea></label>
+          <label>Motion events <textarea data-param="MotionEvents" rows="3"></textarea></label>
+          <label>Event keys <textarea data-param="EventKeys" rows="2"></textarea></label>
+        </fieldset>
+      </details>
+
+      <div class="actions">
+        <button type="submit">Save</button>
+        <button type="button" id="reload">Reload</button>
+        <span id="status" role="status"></span>
+      </div>
+    </form>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

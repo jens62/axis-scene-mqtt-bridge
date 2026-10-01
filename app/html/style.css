@@ -1,0 +1,19 @@
+body { font: 14px/1.4 Arial, Helvetica, sans-serif; color: #222; background: #f4f4f4; margin: 0; }
+main { max-width: 640px; margin: 0 auto; padding: 16px; }
+h1 { font-size: 20px; font-weight: normal; }
+fieldset { background: #fff; border: 1px solid #ccc; border-radius: 3px; margin: 0 0 12px; padding: 8px 12px 12px; }
+legend { font-weight: bold; padding: 0 4px; }
+label { display: block; margin-top: 8px; }
+label.inline { display: flex; align-items: center; gap: 6px; }
+input[type=text], input[type=number], input[type=password], textarea {
+  display: block; box-sizing: border-box; width: 100%; margin-top: 2px; padding: 5px; font: inherit;
+  border: 1px solid #999; border-radius: 2px; }
+textarea { font-family: monospace; }
+summary { cursor: pointer; margin: 8px 0; }
+.hint { color: #666; font-size: 12px; font-weight: normal; }
+.actions { display: flex; align-items: center; gap: 8px; }
+button { padding: 6px 16px; font: inherit; cursor: pointer; }
+button[type=submit] { background: #1a1a1a; color: #fff; border: 1px solid #1a1a1a; border-radius: 2px; }
+#status.ok { color: #1b7a1b; }
+#status.error { color: #b00020; }
+code { font-size: 12px; color: #555; }

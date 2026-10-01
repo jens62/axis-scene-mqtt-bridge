@@ -55,15 +55,17 @@ Unit tests for the de-duplication run on the host: `tests/run.sh`.
 ## Install and configure
 
 1. Upload the `.eap` in the camera's web UI (*Apps*).
-2. Set the broker (there is no settings page yet, use `param.cgi`):
+2. Open the app's settings in the camera UI (*Apps* → *Scene MQTT Bridge* → **Open**), enter
+   the broker and save. Saving restarts the app. Start the app afterwards if it is stopped.
+
+   The page reads and writes the app parameters through `param.cgi`; you can also set them
+   directly:
 
    ```sh
    curl --digest -u root:PASSWORD "http://CAMERA/axis-cgi/param.cgi?action=update\
    &root.axis_scene_mqtt_bridge.MqttHost=BROKER_IP\
    &root.axis_scene_mqtt_bridge.MqttPort=1883"
    ```
-
-   Changing any parameter restarts the app automatically. Start the app afterwards.
 3. Watch: `mosquitto_sub -h BROKER -t 'axis/#' -v`
 
 The camera must also produce the scene metadata: enable the analytics

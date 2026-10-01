@@ -17,6 +17,7 @@
             ]
         },
         "configuration": {
+            "settingPage": "index.html",
             "paramConfig": [
                 { "name": "MqttHost", "default": "", "type": "string" },
                 { "name": "MqttPort", "default": "1883", "type": "string" },
