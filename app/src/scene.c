@@ -23,6 +23,7 @@ static guint clear_timer;
 static gint received_frames;   // all frames from the camera since the last stats line
 static gint published_frames;  // frames that passed the de-duplication
 static guint tick;
+static gint first_frame_seen;
 static gint64 clear_timeout_ms;
 
 static gint64 now_ms(void) {
@@ -40,7 +41,8 @@ static void on_message(const mdb_message_t* message, void* user_data) {
     (void)user_data;
     const mdb_message_payload_t* payload = mdb_message_get_payload(message);
 
-    if (g_atomic_int_add(&received_frames, 1) == 0 && g_atomic_int_get(&published_frames) == 0)
+    g_atomic_int_inc(&received_frames);
+    if (g_atomic_int_compare_and_exchange(&first_frame_seen, 0, 1))
         syslog(LOG_INFO, "First scene frame received");
     if (dedupe_check(dedupe, (const char*)payload->data, payload->size, now_ms())) {
         g_atomic_int_inc(&published_frames);
@@ -76,6 +78,12 @@ static gboolean check_scene_cleared(gpointer user_data) {
         gint published = g_atomic_int_exchange(&published_frames, 0);
         syslog(LOG_INFO, "Scene frames in the last minute: %d received, %d published",
                received, published);
+    }
+    char* pending = dedupe_take_pending(dedupe, now_ms());
+    if (pending != NULL) {
+        g_atomic_int_inc(&published_frames);
+        mqtt_publish(OBJECTS_TOPIC, pending, strlen(pending), false);
+        g_free(pending);
     }
     if (dedupe_expired(dedupe, now_ms(), clear_timeout_ms)) {
         GDateTime* now = g_date_time_new_now_utc();

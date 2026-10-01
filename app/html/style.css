@@ -11,7 +11,8 @@ input[type=text], input[type=number], input[type=password], select, textarea {
 textarea { font-family: monospace; }
 summary { cursor: pointer; margin: 8px 0; }
 .hint { color: #666; font-size: 12px; font-weight: normal; }
-.actions { display: flex; align-items: center; gap: 8px; }
+.actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.choices { margin-top: 8px; }
 button { padding: 6px 16px; font: inherit; cursor: pointer; }
 button[type=submit] { background: #1a1a1a; color: #fff; border: 1px solid #1a1a1a; border-radius: 2px; }
 #status.ok { color: #1b7a1b; }

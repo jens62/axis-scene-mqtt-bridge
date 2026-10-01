@@ -1,12 +1,18 @@
-// Host-side test of the frame de-duplication: see tests/run.sh
+// Host-side test of the frame filter: see tests/run.sh
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
 
 #include "../app/src/dedupe.h"
 
-static char* frame(const char* ts, const char* id, double left, double score, const char* color,
-                   const char* type) {
+static bool check(dedupe_t* d, const char* json, long ms) {
+    return dedupe_check(d, json, strlen(json), ms);
+}
+
+/* ---- com.axis.scene.frame.v1 ("detections"), no interval ---- */
+
+static char* detection(const char* ts, const char* id, double left, double score, const char* color,
+                       const char* type) {
     static char buf[4][1024];
     static int n;
     char* b = buf[n++ % 4];
@@ -19,108 +25,120 @@ static char* frame(const char* ts, const char* id, double left, double score, co
     return b;
 }
 
-static bool check(dedupe_t* d, const char* json, long ms) {
-    return dedupe_check(d, json, strlen(json), ms);
+static void test_frame_v1(void) {
+    dedupe_t* d = dedupe_new(0.05, 0, true);
+
+    assert(check(d, detection("t1", "A", 0.10, 0.54, "green", "Human"), 0));
+    assert(!check(d, detection("t2", "A", 0.10, 0.50, "green", "Human"), 100));   // score jitter
+    assert(!check(d, detection("t3", "A", 0.12, 0.54, "green", "Human"), 200));   // small move
+    assert(check(d, detection("t4", "A", 0.30, 0.54, "green", "Human"), 300));    // big move
+    assert(check(d, detection("t5", "A", 0.30, 0.54, "blue", "Human"), 400));     // colour
+    assert(check(d, detection("t6", "A", 0.30, 0.54, "blue", "Vehicle"), 500));   // class
+    assert(check(d, detection("t7", "B", 0.30, 0.54, "blue", "Vehicle"), 600));   // new track
+    const char* empty = "{\"channel_id\":1,\"detections\":[],\"timestamp\":\"t8\"}";
+    assert(check(d, empty, 700));
+    assert(!check(d, empty, 800));
+    assert(check(d, "garbage", 900));            // never swallow what we do not understand
+    assert(check(d, "{\"foo\":1}", 1000));
+
+    assert(check(d, detection("t9", "C", 0.10, 0.54, "green", "Human"), 2000));
+    assert(!dedupe_expired(d, 3000, 3000));
+    assert(dedupe_expired(d, 5000, 3000));
+    assert(!dedupe_expired(d, 6000, 3000));
+    assert(check(d, detection("t10", "C", 0.10, 0.54, "green", "Human"), 7000));
+    dedupe_free(d);
 }
 
-// com.axis.analytics_scene_description.v0.beta, shapes taken from a capture of the M4228-LVE.
-static char* obs(const char* ts, const char* human_id, double left, const char* upper, double score,
-                 bool with_face, bool with_unclassified) {
+/* ---- com.axis.analytics_scene_description.v0.beta ("frame.observations"), shapes from a capture ---- */
+
+enum { UNCLASSIFIED = 1, HUMAN = 2, FACE = 4 };
+
+static char* obs(const char* ts, int parts, double left, const char* upper, double score) {
     static char buf[4][2048];
     static int n;
     char* b = buf[n++ % 4];
     int len = snprintf(b, 2048, "{\"frame\":{\"observations\":[");
-    if (with_unclassified)
+    const char* sep = "";
+    if (parts & UNCLASSIFIED) {
         len += snprintf(b + len, 2048 - len,
                         "{\"bounding_box\":{\"bottom\":0.5797,\"left\":0.9777,\"right\":0.9872,"
                         "\"top\":0.5677},\"timestamp\":\"%s\",\"track_id\":\"u1\"}", ts);
-    if (human_id != NULL)
+        sep = ",";
+    }
+    if (parts & HUMAN) {
         len += snprintf(b + len, 2048 - len,
                         "%s{\"bounding_box\":{\"bottom\":0.5763,\"left\":%.4f,\"right\":%.4f,"
                         "\"top\":0.2213},\"class\":{\"lower_clothing_colors\":[{\"name\":\"Blue\","
                         "\"score\":%.2f}],\"score\":%.2f,\"type\":\"Human\",\"upper_clothing_colors\":"
-                        "[{\"name\":\"%s\",\"score\":%.2f}]},\"timestamp\":\"%s\",\"track_id\":\"%s\"}",
-                        with_unclassified ? "," : "", left, left + 0.07, score, score, upper, score, ts,
-                        human_id);
-    if (with_face)
+                        "[{\"name\":\"%s\",\"score\":%.2f}]},\"timestamp\":\"%s\",\"track_id\":\"h1\"}",
+                        sep, left, left + 0.07, score, score, upper, score, ts);
+        sep = ",";
+    }
+    if (parts & FACE) {
         len += snprintf(b + len, 2048 - len,
                         "%s{\"bounding_box\":{\"bottom\":0.3787,\"left\":0.2636,\"right\":0.2962,"
                         "\"top\":0.2961},\"class\":{\"score\":%.2f,\"type\":\"Face\"},"
-                        "\"timestamp\":\"%s\",\"track_id\":\"f1\"}",
-                        (with_unclassified || human_id != NULL) ? "," : "", score, ts);
+                        "\"timestamp\":\"%s\",\"track_id\":\"f1\"}", sep, score, ts);
+    }
     snprintf(b + len, 2048 - len, "],\"operations\":[],\"timestamp\":\"%s\"}}", ts);
     return b;
 }
 
 static void test_observations(void) {
-    dedupe_t* d = dedupe_new(0.05, 1000, false);
+    dedupe_t* d = dedupe_new(0.15, 3000, false);
 
-    // Only an unclassified fresh track: nothing worth reporting.
-    assert(!check(d, obs("t0", NULL, 0, "", 0, false, true), 0));
-    // The person gets classified (unclassified track still present) -> publish.
-    assert(check(d, obs("t1", "h1", 0.13, "Green", 0.82, false, true), 100));
-    // 10 Hz stream: score jitter, small moves, a face appearing as extra object.
-    long ms = 200;
+    // Unclassified noise only: nothing to report.
+    assert(!check(d, obs("t0", UNCLASSIFIED, 0, "", 0), 0));
+    // The person gets classified: the first message is never held back.
+    assert(check(d, obs("t1", UNCLASSIFIED | HUMAN, 0.13, "Green", 0.82), 100));
+    // 10 Hz stream with jitter and slow drift for 2.9 s: nothing.
     int published = 0;
-    for (int i = 0; i < 30; i++, ms += 100)
-        published += check(d, obs("t", "h1", 0.13 + 0.001 * i, "Green", 0.82 - 0.005 * i, false, true), ms);
+    for (int i = 0; i < 29; i++)
+        published += check(d, obs("t", UNCLASSIFIED | HUMAN, 0.13 + 0.001 * i, "Green", 0.82 - 0.005 * i), 200 + 100 * i);
     assert(published == 0);
-    // A face shows up (new classified track) -> publish, then its score jitter is suppressed.
-    assert(check(d, obs("t2", "h1", 0.16, "Green", 0.80, true, true), ms));
-    assert(!check(d, obs("t3", "h1", 0.16, "Green", 0.70, true, true), ms + 100));
-    // Upper clothing colour changes -> publish immediately.
-    assert(check(d, obs("t4", "h1", 0.16, "Beige", 0.70, true, true), ms + 200));
-    // Person walks away: moved far, after the min interval -> publish; before it -> suppressed.
-    assert(!check(d, obs("t5", "h1", 0.50, "Beige", 0.70, true, true), ms + 300));
-    assert(check(d, obs("t6", "h1", 0.50, "Beige", 0.70, true, true), ms + 1300));
-    // Everyone gone (only the unclassified track left) -> one publish, then quiet.
-    assert(check(d, obs("t7", NULL, 0, "", 0, false, true), ms + 1400));
-    assert(!check(d, obs("t8", NULL, 0, "", 0, false, true), ms + 1500));
+    // A face flickers in and out: never a change by itself.
+    assert(!check(d, obs("t2", HUMAN | FACE, 0.16, "Green", 0.80), 3100));
+    assert(!check(d, obs("t3", HUMAN, 0.16, "Green", 0.80), 3200));
+    assert(!check(d, obs("t4", HUMAN | FACE, 0.16, "Green", 0.70), 3300));
+    assert(dedupe_take_pending(d, 3400) == NULL);
+
+    // The colour changes inside the interval of the last message (t=100 -> 3100 is over: publishes).
+    assert(check(d, obs("t5", HUMAN | FACE, 0.16, "Beige", 0.70), 3400));
+    // Another change right after it is held back, and the newest one wins.
+    assert(!check(d, obs("t6", HUMAN | FACE, 0.60, "Beige", 0.70), 4000));   // moved far
+    assert(!check(d, obs("t7", HUMAN | FACE, 0.62, "Beige", 0.70), 4500));
+    assert(dedupe_take_pending(d, 5000) == NULL);                            // interval not over
+    char* p = dedupe_take_pending(d, 6400);
+    assert(p != NULL && strstr(p, "\"t7\"") != NULL);
+    g_free(p);
+    assert(dedupe_take_pending(d, 6500) == NULL);                            // handed out once
+
+    // The person leaves inside the interval: not lost, handed out when the interval is over.
+    assert(!check(d, obs("t8", UNCLASSIFIED, 0, "", 0), 7000));
+    assert(dedupe_take_pending(d, 9000) == NULL);   // last message went out at 6400, due at 9400
+    p = dedupe_take_pending(d, 9400);
+    assert(p != NULL && strstr(p, "\"t8\"") != NULL);
+    g_free(p);
+    // Quiet again.
+    assert(!check(d, obs("t9", UNCLASSIFIED, 0, "", 0), 10000));
+    assert(dedupe_take_pending(d, 10500) == NULL);
+
+    // A change that is undone inside the interval leaves nothing pending.
+    assert(check(d, obs("t10", HUMAN, 0.20, "Green", 0.8), 20000));
+    assert(!check(d, obs("t11", HUMAN, 0.20, "Beige", 0.8), 20500));
+    assert(!check(d, obs("t12", HUMAN, 0.20, "Green", 0.8), 21000));
+    assert(dedupe_take_pending(d, 30000) == NULL);
     dedupe_free(d);
 
-    // With publish_unclassified the fresh track counts.
-    d = dedupe_new(0.05, 1000, true);
-    assert(check(d, obs("t0", NULL, 0, "", 0, false, true), 0));
-    assert(!check(d, obs("t1", NULL, 0, "", 0, false, true), 100));
+    // publish_unclassified: the fresh track counts.
+    d = dedupe_new(0.15, 3000, true);
+    assert(check(d, obs("t0", UNCLASSIFIED, 0, "", 0), 0));
+    assert(!check(d, obs("t1", UNCLASSIFIED, 0, "", 0), 100));
     dedupe_free(d);
 }
 
 int main(void) {
-    dedupe_t* d = dedupe_new(0.05, 1000, true);
-
-    // New track -> publish.
-    assert(check(d, frame("t1", "A", 0.10, 0.54, "green", "Human"), 0));
-    // Only timestamp and score jitter -> suppressed.
-    assert(!check(d, frame("t2", "A", 0.10, 0.50, "green", "Human"), 100));
-    // Small move below threshold -> suppressed.
-    assert(!check(d, frame("t3", "A", 0.12, 0.54, "green", "Human"), 200));
-    // Big move but within min interval -> suppressed.
-    assert(!check(d, frame("t4", "A", 0.30, 0.54, "green", "Human"), 500));
-    // Big move after min interval -> published.
-    assert(check(d, frame("t5", "A", 0.30, 0.54, "green", "Human"), 1200));
-    // Best color changes -> published immediately.
-    assert(check(d, frame("t6", "A", 0.30, 0.54, "blue", "Human"), 1300));
-    // Class changes -> published.
-    assert(check(d, frame("t7", "A", 0.30, 0.54, "blue", "Vehicle"), 1400));
-    // New track id -> published.
-    assert(check(d, frame("t8", "B", 0.30, 0.54, "blue", "Vehicle"), 1500));
-    // Empty scene frame -> published once, then suppressed.
-    const char* empty = "{\"channel_id\":1,\"detections\":[],\"timestamp\":\"t9\"}";
-    assert(check(d, empty, 1600));
-    assert(!check(d, empty, 1700));
-    // Not JSON / not a scene -> never swallowed.
-    assert(check(d, "garbage", 1800));
-    assert(check(d, "{\"foo\":1}", 1900));
-
-    // Timeout: objects published, then no frames -> expired exactly once.
-    assert(check(d, frame("t10", "C", 0.10, 0.54, "green", "Human"), 2000));
-    assert(!dedupe_expired(d, 3000, 3000));
-    assert(dedupe_expired(d, 5000, 3000));
-    assert(!dedupe_expired(d, 6000, 3000));
-    // Same object again after the clear is a new appearance -> published.
-    assert(check(d, frame("t11", "C", 0.10, 0.54, "green", "Human"), 7000));
-
-    dedupe_free(d);
+    test_frame_v1();
     test_observations();
     puts("dedupe: all tests passed");
     return 0;

@@ -38,13 +38,16 @@
           <legend>Object de-duplication</legend>
           <label>Move threshold <input data-param="MoveThreshold" type="number" min="0" step="0.01">
             <span class="hint">normalized image units a track must move to be re-published; a large value (e.g. 10) turns movement-only updates off</span></label>
-          <label>Min. interval for movement updates (ms) <input data-param="MinIntervalMs" type="number" min="0" step="100"></label>
+          <label>Min. interval between object messages (ms) <input data-param="MinIntervalMs" type="number" min="0" step="100">
+            <span class="hint">A change inside this time is held back and sent when it is over, so nothing is lost.</span></label>
           <label>Empty scene after (s) <input data-param="ClearTimeoutSec" type="number" min="1"></label>
         </fieldset>
         <fieldset>
-          <legend>Audio events</legend>
-          <label>Merge bursts: hold "off" for (s)
-            <input data-param="AudioHoldSec" type="number" min="0" step="1">
+          <legend>Audio and motion events</legend>
+          <label>Audio: hold "off" for (s)
+            <input data-param="AudioHoldSec" type="number" min="0" step="1"></label>
+          <label>Motion: hold "off" for (s)
+            <input data-param="MotionHoldSec" type="number" min="0" step="1">
             <span class="hint">The first "on" is sent at once, short pauses do not end the episode, "off" follows this many seconds
               after the last burst. 0 sends every on/off the camera reports.</span></label>
         </fieldset>
@@ -60,7 +63,19 @@
             <span class="hint">Only the first three are on the camera's allow-list for apps on AXIS OS 12.x.</span></label>
           <label>Scene source (channel) <input data-param="SceneSource" type="text"></label>
           <label>Audio events <textarea data-param="AudioEvents" rows="3"></textarea></label>
-          <label>Motion events <textarea data-param="MotionEvents" rows="3"></textarea></label>
+          <div class="choices">
+            <strong>Motion events</strong>
+            <label class="inline"><input type="checkbox" data-motion="tns1:RuleEngine/MotionRegionDetector"> Motion detection, ONVIF standard (start/stop of motion)</label>
+            <label class="inline"><input type="checkbox" data-motion="tnsaxis:CameraApplicationPlatform/VMD/Camera1ProfileANY"> AXIS Video Motion Detection, any profile</label>
+            <label class="inline"><input type="checkbox" data-motion="tnsaxis:CameraApplicationPlatform/VMD"> AXIS Video Motion Detection, every profile separately</label>
+            <label class="inline"><input type="checkbox" data-motion="tnsaxis:CameraApplicationPlatform/ObjectAnalytics/Device1ScenarioANY"> Object Analytics, any scenario (people, vehicles)</label>
+            <label class="inline"><input type="checkbox" data-motion="tnsaxis:CameraApplicationPlatform/ObjectAnalytics"> Object Analytics, every scenario separately</label>
+            <label class="inline"><input type="checkbox" data-motion="tnsaxis:VMD4"> VMD 4 (older firmware)</label>
+            <label class="inline"><input type="checkbox" data-motion="tnsaxis:VMD3"> VMD 3 (older firmware)</label>
+            <span class="hint">Several of these report the same motion; pick one per source.</span>
+          </div>
+          <label>Selected motion events (comma separated, add your own topics here)
+            <textarea data-param="MotionEvents" rows="3"></textarea></label>
           <label>Event keys <textarea data-param="EventKeys" rows="2"></textarea></label>
         </fieldset>
       </details>
@@ -68,6 +83,10 @@
       <div class="actions">
         <button type="submit">Save</button>
         <button type="button" id="reload">Reload</button>
+        <button type="button" id="reset">Reset to defaults</button>
+        <button type="button" id="export">Export</button>
+        <button type="button" id="import">Import</button>
+        <input type="file" id="import-file" accept="application/json,.json" hidden>
         <span id="status" role="status"></span>
       </div>
     </form>

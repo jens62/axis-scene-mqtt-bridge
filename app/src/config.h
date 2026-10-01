@@ -21,6 +21,7 @@ typedef struct {
     double move_threshold;  // normalized (0..1) distance a track must move to be re-published
     int min_interval_ms;    // minimum time between "moved only" publishes
     int audio_hold_s;       // merge audio on/off bursts, 0 = off
+    int motion_hold_s;      // same for motion events
     int clear_timeout_s;    // no object frames for this long -> publish an empty scene
     char* audio_events;
     char* motion_events;

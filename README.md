@@ -19,14 +19,17 @@ Developed against an AXIS M4228-LVE (aarch64, AXIS OS 12.x).
 * **Events (audio, motion)**: the camera's event system already sends stateful
   events only on state changes (`PropertyOperation=Changed`, e.g. `Detected=1`
   then `Detected=0`). They are forwarded as they come.
-* **Scene frames** arrive every ~100 ms and always differ in timestamp and
-  bounding box. `src/dedupe.c` publishes a frame only if
-  * a track appeared or disappeared, or
-  * anything except `timestamp`, `bounding_box` and `score` values changed
-    (colour lists count with their best entry only), or
-  * a track moved more than `MoveThreshold` and `MinIntervalMs` passed.
-* The camera sends nothing for an empty scene, so after `ClearTimeoutSec`
-  without objects the app publishes `{"detections":[],"synthetic":true,...}`.
+* **Scene frames** arrive every ~100 ms and always differ in timestamp and bounding box.
+  `src/dedupe.c` compares each frame with the last published one and publishes only if
+  * a classified object appeared or disappeared, or its attributes changed (everything except
+    `timestamp`, `bounding_box` and `score` values; colour lists count with their best entry), or
+  * an object moved more than `MoveThreshold`.
+
+  Faces never cause a message by themselves (they flicker); they are part of whatever frame goes out.
+  At most one message per `MinIntervalMs` (default 3 s) is sent. A change inside the interval is held
+  back and sent when the interval is over, so "the person left" is not lost.
+* The camera sends nothing for an empty scene, so after `ClearTimeoutSec` without objects the app
+  publishes `{"detections":[],"synthetic":true,...}`.
 
 The published payload is the camera's original JSON, untouched.
 
@@ -46,11 +49,12 @@ The camera only lets apps read three message broker topics (see the install log 
 | `com.axis.radar.analytics_scene_description.v0.beta` | radar products only |
 | `com.axis.scene.frame.v1` | not on the allow-list for apps on the tested firmware; the camera's own MQTT publisher can send it |
 
-Audio hold time: the camera's classifiers switch on and off in short bursts while someone talks.
-With `AudioHoldSec` (default 5) the first `Detected:true` is sent at once, further bursts are
-merged, and `Detected:false` follows that many seconds after the last burst (it then carries the
-time of that last "off"). `0` forwards every on/off. This applies to audio events with a
-`Detected` or `triggered` value, per event topic; motion events are not merged.
+Hold time: the camera's classifiers and motion detectors switch on and off in short bursts.
+With `AudioHoldSec` / `MotionHoldSec` (default 5 each) the first "on" (`Detected`, `triggered`,
+`active` or `State` true) is sent at once, further bursts are merged, and the "off" follows that
+many seconds after the last burst (it carries the time of that last "off"). `0` forwards every
+on/off. Applies per event topic. Because the camera's timer works in whole seconds, the hold can be
+up to a second longer.
 
 Replayed states: when the app subscribes, the camera sends the current state of stateful events
 once, with their old timestamp. Those messages carry `"initial":true`.
@@ -101,6 +105,16 @@ The camera must also produce the scene metadata: enable the analytics
 metadata producer *Analytics scene description* / *Object analytics* in the
 camera, and install AXIS Audio Analytics for the audio classification events.
 
+The settings page has a check list for the known motion events (several report the same motion,
+pick one per source), **Reset to defaults** (including the broker; press Save afterwards),
+and **Export** / **Import** of the settings as a JSON file (without the password) for moving
+settings to another camera or after a reinstall.
+
+Updating: upload the new `.eap` over the old one, the settings stay (parameters survive an
+update). The camera may refuse a package with the same version number as the installed one, so every
+build gets a new version in `app/manifest.json`. The log shows the installed version and the
+settings in use at every start.
+
 ### Parameters
 
 | Name | Default | Meaning |
@@ -109,12 +123,12 @@ camera, and install AXIS Audio Analytics for the audio classification events.
 | `TopicPrefix` | `axis/<serial>/bridge` | Topic prefix |
 | `PublishObjects`, `PublishAudio`, `PublishMotion` | yes | Switch sources on/off |
 | `SceneTopic`, `SceneSource` | `com.axis.analytics_scene_description.v0.beta`, `1` | Message broker topic (pull-down) and channel |
-| `AudioHoldSec` | 5 | Merge audio on/off bursts into one episode, 0 = off |
+| `AudioHoldSec`, `MotionHoldSec` | 5 | Merge on/off bursts into one episode, 0 = off |
 | `PublishUnclassified` | no | Objects without a class count as a change |
-| `MoveThreshold` | 0.05 | Movement (normalized image units) that counts as a change |
-| `MinIntervalMs` | 1000 | Minimum interval for move-only updates |
+| `MoveThreshold` | 0.15 | Movement (normalized image units) that counts as a change |
+| `MinIntervalMs` | 3000 | Minimum interval between object messages |
 | `ClearTimeoutSec` | 3 | Seconds without objects until the empty scene is published |
-| `AudioEvents`, `MotionEvents` | see `manifest.json` | Comma separated event topics, e.g. `tns1:AudioSource/tnsaxis:TriggerLevel`. A level without namespace inherits the previous one. |
+| `AudioEvents`, `MotionEvents` | audio: three topics, motion: `tns1:RuleEngine/MotionRegionDetector` | Comma separated event topics, e.g. `tns1:AudioSource/tnsaxis:TriggerLevel`. A level without namespace inherits the previous one. |
 | `EventKeys` | see `manifest.json` | Event keys copied into `data` (the event API cannot list keys) |
 
 ## Where does it run? (QNAP / Container Station)

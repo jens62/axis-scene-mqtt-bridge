@@ -38,7 +38,7 @@ static void watch_parameters(AXParameter* handle) {
     static const char* const names[] = {
         "MqttHost", "MqttPort", "MqttUser", "MqttPassword", "TopicPrefix", "PublishObjects",
         "PublishAudio", "PublishMotion", "PublishUnclassified", "SceneTopic", "SceneSource", "MoveThreshold",
-        "MinIntervalMs", "ClearTimeoutSec", "AudioHoldSec", "AudioEvents", "MotionEvents", "EventKeys",
+        "MinIntervalMs", "ClearTimeoutSec", "AudioHoldSec", "MotionHoldSec", "AudioEvents", "MotionEvents", "EventKeys",
     };
     for (size_t i = 0; i < G_N_ELEMENTS(names); i++)
         ax_parameter_register_callback(handle, names[i], on_parameter_changed, NULL, NULL);

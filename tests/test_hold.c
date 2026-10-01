@@ -20,6 +20,15 @@ static void run_for_ms(int ms) {
     }
 }
 
+// g_timeout_add_seconds may fire up to a second late: wait for the result instead of a fixed time.
+static void run_until(guint count, int max_ms) {
+    for (int i = 0; i < max_ms / 10 && sent->len < count; i++) {
+        while (g_main_context_iteration(NULL, FALSE))
+            ;
+        g_usleep(10 * 1000);
+    }
+}
+
 static void expect(guint count, const char* last) {
     assert(sent->len == count);
     if (last != NULL)
@@ -52,7 +61,7 @@ int main(void) {
     expect(3, "audio/Shout shout_on");
 
     // Quiet for longer than the hold time: only the last off is published.
-    run_for_ms(1300);
+    run_until(4, 3000);
     expect(4, "audio/Speech off3");
 
     // A new episode starts again with an immediate "on".
@@ -62,7 +71,7 @@ int main(void) {
     // Freeing with a pending timer must not crash or fire.
     hold_event(h, "audio/Speech", "off4", 0);
     hold_free(h);
-    run_for_ms(1300);
+    run_for_ms(2500);
     expect(5, NULL);
 
     g_ptr_array_free(sent, TRUE);

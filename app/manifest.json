@@ -8,7 +8,7 @@
             "vendorId": "1234567890",
             "vendorUrl": "https://github.com/jens62/axis-scene-mqtt-bridge",
             "runMode": "respawn",
-            "version": "0.1.3",
+            "version": "0.2.0",
             "compatibleOsVersions": [
                 {
                     "min": "12.2",
@@ -30,10 +30,11 @@
                 { "name": "PublishUnclassified", "default": "no", "type": "bool:no,yes" },
                 { "name": "SceneTopic", "default": "com.axis.analytics_scene_description.v0.beta", "type": "string" },
                 { "name": "SceneSource", "default": "1", "type": "string" },
-                { "name": "MoveThreshold", "default": "0.05", "type": "string" },
-                { "name": "MinIntervalMs", "default": "1000", "type": "string" },
+                { "name": "MoveThreshold", "default": "0.15", "type": "string" },
+                { "name": "MinIntervalMs", "default": "3000", "type": "string" },
                 { "name": "ClearTimeoutSec", "default": "3", "type": "string" },
                 { "name": "AudioHoldSec", "default": "5", "type": "string" },
+                { "name": "MotionHoldSec", "default": "5", "type": "string" },
                 {
                     "name": "AudioEvents",
                     "default": "tnsaxis:AudioClassification, tnsaxis:AdaptiveAudioDetection, tns1:AudioSource/tnsaxis:TriggerLevel",
@@ -41,7 +42,7 @@
                 },
                 {
                     "name": "MotionEvents",
-                    "default": "tnsaxis:CameraApplicationPlatform/VMD, tnsaxis:CameraApplicationPlatform/ObjectAnalytics, tnsaxis:VMD4, tnsaxis:VMD3, tns1:RuleEngine/MotionRegionDetector",
+                    "default": "tns1:RuleEngine/MotionRegionDetector",
                     "type": "string"
                 },
                 {

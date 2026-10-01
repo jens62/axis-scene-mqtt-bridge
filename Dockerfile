@@ -21,4 +21,6 @@ RUN . /opt/axis/acapsdk/environment-setup* && \
 
 COPY ./app /opt/app/
 WORKDIR /opt/app
+# The settings page needs the defaults for "Reset to defaults": one source, manifest.json.
+RUN jq '[.acapPackageConf.configuration.paramConfig[] | {(.name): .default}] | add' manifest.json > html/defaults.json
 RUN . /opt/axis/acapsdk/environment-setup* && acap-build .

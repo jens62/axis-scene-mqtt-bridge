@@ -13,6 +13,9 @@ const clearPassword = document.getElementById("clear-password");
 const fields = Array.from(document.querySelectorAll("[data-param]"));
 const prefixField = document.querySelector('[data-param="TopicPrefix"]');
 
+const motionChecks = Array.from(document.querySelectorAll("[data-motion]"));
+const motionField = document.querySelector('[data-param="MotionEvents"]');
+
 let loaded = {};  // values as read from the camera, to send only what changed
 
 function setStatus(text, kind) {
@@ -49,6 +52,21 @@ async function showDefaultPrefix() {
   }
 }
 
+function motionList() {
+  return motionField.value.split(",").map((s) => s.trim()).filter((s) => s !== "");
+}
+
+function motionChecksFromText() {
+  const list = motionList();
+  for (const box of motionChecks) box.checked = list.includes(box.dataset.motion);
+}
+
+function motionTextFromChecks(changed) {
+  const list = motionList().filter((s) => s !== changed.dataset.motion);
+  if (changed.checked) list.push(changed.dataset.motion);
+  motionField.value = list.join(", ");
+}
+
 function readField(el) {
   return el.type === "checkbox" ? (el.checked ? "yes" : "no") : el.value.trim();
 }
@@ -65,6 +83,7 @@ function writeField(el, value) {
     el.appendChild(option);
   }
   el.value = value;
+  if (el === motionField) motionChecksFromText();
 }
 
 async function load() {
@@ -89,7 +108,7 @@ function validate(changes) {
     return Number.isFinite(n) && n >= min && n <= max ? null : key + " must be a number from " + min + " to " + max;
   };
   return num("MqttPort", 1, 65535) || num("MoveThreshold", 0, 10) ||
-         num("MinIntervalMs", 0, 3600000) || num("AudioHoldSec", 0, 3600) || num("ClearTimeoutSec", 1, 86400);
+         num("MinIntervalMs", 0, 3600000) || num("AudioHoldSec", 0, 3600) || num("MotionHoldSec", 0, 3600) || num("ClearTimeoutSec", 1, 86400);
 }
 
 async function save(event) {
@@ -133,6 +152,64 @@ async function save(event) {
     setStatus("Could not save: " + err.message, "error");
   }
 }
+
+// defaults.json is generated from manifest.json when the package is built.
+async function resetToDefaults() {
+  if (!confirm("Reset all settings, including the MQTT broker, to the defaults?")) return;
+  try {
+    const res = await fetch("defaults.json", { credentials: "same-origin" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const defaults = await res.json();
+    for (const el of fields) writeField(el, defaults[el.dataset.param] ?? "");
+    password.value = "";
+    clearPassword.checked = true;
+    setStatus("Defaults loaded. Press Save to apply them.");
+  } catch (err) {
+    setStatus("Could not load the defaults: " + err.message, "error");
+  }
+}
+
+// The password is not exported.
+function exportSettings() {
+  const settings = {};
+  for (const el of fields) settings[el.dataset.param] = readField(el);
+  const blob = new Blob([JSON.stringify(settings, null, 2) + "\n"], { type: "application/json" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "scene-mqtt-bridge-settings.json";
+  link.click();
+  URL.revokeObjectURL(link.href);
+  setStatus("Settings exported (without the password).");
+}
+
+async function importSettings(file) {
+  try {
+    const settings = JSON.parse(await file.text());
+    let count = 0;
+    for (const el of fields) {
+      const key = el.dataset.param;
+      if (typeof settings[key] === "string") {
+        writeField(el, settings[key]);
+        count++;
+      }
+    }
+    if (count === 0) throw new Error("no known settings in this file");
+    setStatus("Imported " + count + " settings. Press Save to apply them.");
+  } catch (err) {
+    setStatus("Could not import: " + err.message, "error");
+  }
+}
+
+for (const box of motionChecks) box.addEventListener("change", () => motionTextFromChecks(box));
+motionField.addEventListener("input", motionChecksFromText);
+document.getElementById("reset").addEventListener("click", resetToDefaults);
+document.getElementById("export").addEventListener("click", exportSettings);
+const importFile = document.getElementById("import-file");
+document.getElementById("import").addEventListener("click", () => importFile.click());
+importFile.addEventListener("change", () => {
+  if (importFile.files.length > 0) importSettings(importFile.files[0]);
+  importFile.value = "";
+});
 
 form.addEventListener("submit", save);
 document.getElementById("reload").addEventListener("click", load);

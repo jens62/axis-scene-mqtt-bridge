@@ -13,15 +13,15 @@
 
 typedef struct {
     const char* category;  // "audio" or "motion", static string
-    gboolean hold;         // merge on/off bursts (audio only)
+    gboolean hold;         // merge on/off bursts
     char** keys;           // NULL-terminated list of data/source key names to look for
 } subscription_ctx_t;
 
 static AXEventHandler* handler;
 static GArray* subscriptions;  // guint ids
 static GPtrArray* contexts;    // subscription_ctx_t*
-static hold_t* holds;          // audio on/off merging, NULL if disabled
-static int audio_hold_s;
+static hold_t* audio_holds;    // on/off merging per category, NULL if disabled
+static hold_t* motion_holds;
 static gint64 start_us;        // wall clock at subscription time, to recognise replayed states
 
 static void context_free(gpointer p) {
@@ -100,7 +100,7 @@ static void publish_json(const char* sub_topic, const char* json, void* user_dat
 
 /** 1/0 for events that switch something on/off (Detected, triggered), -1 for all others. */
 static int on_off_state(const AXEventKeyValueSet* kvs) {
-    static const char* const keys[] = {"Detected", "triggered"};
+    static const char* const keys[] = {"Detected", "triggered", "active", "State", "state"};
 
     for (size_t i = 0; i < G_N_ELEMENTS(keys); i++) {
         json_t* v = read_value(kvs, keys[i]);
@@ -137,7 +137,8 @@ static void on_event(guint subscription, AXEvent* event, gpointer user_data) {
     char* json   = json_dumps(root, JSON_COMPACT);
 
     char* sub_topic = g_strdup_printf("%s/%s", ctx->category, topic_path);
-    int state = (ctx->hold && holds != NULL) ? on_off_state(kvs) : -1;
+    hold_t* holds = strcmp(ctx->category, "audio") == 0 ? audio_holds : motion_holds;
+    int state     = (ctx->hold && holds != NULL) ? on_off_state(kvs) : -1;
     if (state >= 0)
         hold_event(holds, sub_topic, json, state);
     else
@@ -174,7 +175,7 @@ static void subscribe_spec(const char* category, const char* spec, const char* k
 
     subscription_ctx_t* ctx = g_new0(subscription_ctx_t, 1);
     ctx->category           = category;
-    ctx->hold               = strcmp(category, "audio") == 0;
+    ctx->hold               = TRUE;
     ctx->keys               = g_strsplit(keys_csv, ",", -1);
     for (char** k = ctx->keys; *k != NULL; k++)
         g_strstrip(*k);
@@ -205,8 +206,8 @@ static void subscribe_list(const char* category, const char* specs_csv, const ch
 
 bool events_start(const config_t* cfg) {
     start_us      = g_get_real_time();
-    audio_hold_s  = cfg->audio_hold_s;
-    holds         = audio_hold_s > 0 ? hold_new(audio_hold_s, publish_json, NULL) : NULL;
+    audio_holds   = cfg->audio_hold_s > 0 ? hold_new(cfg->audio_hold_s, publish_json, NULL) : NULL;
+    motion_holds  = cfg->motion_hold_s > 0 ? hold_new(cfg->motion_hold_s, publish_json, NULL) : NULL;
     handler       = ax_event_handler_new();
     subscriptions = g_array_new(FALSE, FALSE, sizeof(guint));
     contexts      = g_ptr_array_new_with_free_func(context_free);
@@ -225,8 +226,9 @@ void events_stop(void) {
         ax_event_handler_unsubscribe(handler, g_array_index(subscriptions, guint, i), NULL);
     ax_event_handler_free(handler);
     handler = NULL;
-    hold_free(holds);
-    holds = NULL;
+    hold_free(audio_holds);
+    hold_free(motion_holds);
+    audio_holds = motion_holds = NULL;
     g_array_free(subscriptions, TRUE);
     g_ptr_array_free(contexts, TRUE);
 }
