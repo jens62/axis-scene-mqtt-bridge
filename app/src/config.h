@@ -18,6 +18,7 @@ typedef struct {
     bool publish_unclassified;  // objects without a class count as a change
     char* scene_topic;
     char* scene_source;
+    bool objects_start_stop;  // objects: only appear/disappear, no movement or attribute updates
     double move_threshold;  // normalized (0..1) distance a track must move to be re-published
     int min_interval_ms;    // minimum time between "moved only" publishes
     int audio_hold_s;       // merge audio on/off bursts, 0 = off

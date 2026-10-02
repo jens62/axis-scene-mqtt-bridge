@@ -137,9 +137,28 @@ static void test_observations(void) {
     dedupe_free(d);
 }
 
+/* ---- start/stop only: movement and flickering clothing colours are ignored ---- */
+
+static void test_start_stop(void) {
+    dedupe_t* d = dedupe_new(0.05, 1000, false);
+    dedupe_set_start_stop_only(d, true);
+
+    assert(check(d, obs("t0", HUMAN, 0.10, "Black", 0.6), 0));          // appears
+    assert(!check(d, obs("t1", HUMAN, 0.60, "Black", 0.6), 2000));     // moved a lot
+    assert(!check(d, obs("t2", HUMAN, 0.60, "Blue", 0.5), 4000));      // colour flips
+    assert(!check(d, obs("t3", HUMAN | FACE, 0.30, "Black", 0.4), 6000));
+    assert(dedupe_take_pending(d, 20000) == NULL);
+
+    assert(!dedupe_expired(d, 8000, 3000));                              // 2 s since last object
+    assert(dedupe_expired(d, 20000, 3000));                              // gone
+    assert(check(d, obs("t4", HUMAN, 0.10, "Blue", 0.6), 21000));       // appears again
+    dedupe_free(d);
+}
+
 int main(void) {
     test_frame_v1();
     test_observations();
+    test_start_stop();
     puts("dedupe: all tests passed");
     return 0;
 }

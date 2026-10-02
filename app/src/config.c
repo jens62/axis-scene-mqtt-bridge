@@ -83,6 +83,7 @@ bool config_load(AXParameter* handle, config_t* cfg) {
     cfg->publish_unclassified = get_bool(handle, "PublishUnclassified");
     cfg->scene_topic     = get_string(handle, "SceneTopic");
     cfg->scene_source    = get_string(handle, "SceneSource");
+    cfg->objects_start_stop = get_bool(handle, "ObjectsStartStopOnly");
     cfg->move_threshold  = get_double(handle, "MoveThreshold", 0.05);
     cfg->min_interval_ms = get_int(handle, "MinIntervalMs", 1000, 0);
     cfg->clear_timeout_s = get_int(handle, "ClearTimeoutSec", 3, 1);
@@ -115,6 +116,7 @@ void config_log(const config_t* cfg) {
            cfg->publish_objects ? "yes" : "no", cfg->publish_audio ? "yes" : "no",
            cfg->publish_motion ? "yes" : "no", cfg->publish_unclassified ? "yes" : "no");
     syslog(LOG_INFO, "Scene topic %s, source %s", cfg->scene_topic, cfg->scene_source);
+    syslog(LOG_INFO, "Objects: %s", cfg->objects_start_stop ? "start/stop only" : "also movement and attribute changes");
     syslog(LOG_INFO, "Move threshold %.3f, min interval %d ms, empty scene after %d s",
            cfg->move_threshold, cfg->min_interval_ms, cfg->clear_timeout_s);
     syslog(LOG_INFO, "Hold time audio %d s, motion %d s", cfg->audio_hold_s, cfg->motion_hold_s);

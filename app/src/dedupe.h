@@ -24,6 +24,13 @@
 typedef struct dedupe dedupe_t;
 
 dedupe_t* dedupe_new(double move_threshold, int min_interval_ms, bool publish_unclassified);
+/**
+ * Motion-detector style: publish when an object appears and when it is gone (see dedupe_expired),
+ * ignore movement and attribute changes (clothing colours flicker) while the track lives. Only a
+ * change of the class type of an existing track still counts.
+ */
+void dedupe_set_start_stop_only(dedupe_t* d, bool on);
+
 void dedupe_free(dedupe_t* d);
 
 /** True if the frame should be published now. now_ms is a monotonic clock. */

@@ -21,6 +21,9 @@ Developed against an AXIS M4228-LVE (aarch64, AXIS OS 12.x).
   then `Detected=0`). They are forwarded as they come.
 * **Scene frames** arrive every ~100 ms and always differ in timestamp and bounding box.
   `src/dedupe.c` compares each frame with the last published one and publishes only if
+  With `ObjectsStartStopOnly` (default) a message is sent only when a tracked object appears or its class
+  type changes, and an empty scene when none was seen for `ClearTimeoutSec`. With it off, the following
+  also applies:
   * a classified object appeared or disappeared, or its attributes changed (everything except
     `timestamp`, `bounding_box` and `score` values; colour lists count with their best entry), or
   * an object moved more than `MoveThreshold`.
@@ -125,19 +128,13 @@ settings in use at every start.
 | `SceneTopic`, `SceneSource` | `com.axis.analytics_scene_description.v0.beta`, `1` | Message broker topic (pull-down) and channel |
 | `AudioHoldSec`, `MotionHoldSec` | 5 | Merge on/off bursts into one episode, 0 = off |
 | `PublishUnclassified` | no | Objects without a class count as a change |
-| `MoveThreshold` | 0.15 | Movement (normalized image units) that counts as a change |
+| `ObjectsStartStopOnly` | yes | Objects behave like a motion detector: one message when an object appears, an empty scene when none was seen for `ClearTimeoutSec`. Movement and attribute changes (clothing colours flicker) are ignored. |
+| `MoveThreshold` | 0.15 | (only if `ObjectsStartStopOnly` is off) Movement (normalized image units) that counts as a change |
 | `MinIntervalMs` | 3000 | Minimum interval between object messages |
-| `ClearTimeoutSec` | 3 | Seconds without objects until the empty scene is published |
+| `ClearTimeoutSec` | 3 | Seconds since the last frame containing an object (faces do not count) until the empty scene is published |
 | `AudioEvents`, `MotionEvents` | audio: three topics, motion: `tns1:RuleEngine/MotionRegionDetector` | Comma separated event topics, e.g. `tns1:AudioSource/tnsaxis:TriggerLevel`. A level without namespace inherits the previous one. |
 | `EventKeys` | see `manifest.json` | Event keys copied into `data` (the event API cannot list keys) |
 
-## Where does it run? (QNAP / Container Station)
-
-The app runs **on the camera**, not in a container. Container Station on the
-QNAP is only useful for the MQTT broker (e.g. an `eclipse-mosquitto` container)
-that the camera publishes to. The build happens in Docker on the Mac.
-
-## Status
 
 Compiles and links for aarch64 (AXIS OS SDK 12.11) and the de-duplication is unit
 tested. **Not yet verified on a camera.** In particular check in the log

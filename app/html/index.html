@@ -28,6 +28,8 @@
         <label class="inline"><input data-param="PublishObjects" type="checkbox"> Objects <code>&lt;prefix&gt;/objects</code></label>
         <label class="inline"><input data-param="PublishAudio" type="checkbox"> Audio events <code>&lt;prefix&gt;/audio/…</code></label>
         <label class="inline"><input data-param="PublishMotion" type="checkbox"> Motion events <code>&lt;prefix&gt;/motion/…</code></label>
+        <label class="inline"><input data-param="ObjectsStartStopOnly" type="checkbox"> Objects: report start and end only
+          <span class="hint">(like a motion detector: one message when an object appears, one empty scene when it is gone; movement and clothing changes are ignored. Off: also report movement above the threshold and attribute changes)</span></label>
         <label class="inline"><input data-param="PublishUnclassified" type="checkbox"> Report objects that are not classified yet
           <span class="hint">(otherwise only objects with a type count as a change)</span></label>
       </fieldset>
@@ -36,11 +38,12 @@
         <summary>Advanced</summary>
         <fieldset>
           <legend>Object de-duplication</legend>
+          <p class="hint">Move threshold and min. interval only apply if "report start and end only" is off.</p>
           <label>Move threshold <input data-param="MoveThreshold" type="number" min="0" step="0.01">
             <span class="hint">normalized image units a track must move to be re-published; a large value (e.g. 10) turns movement-only updates off</span></label>
           <label>Min. interval between object messages (ms) <input data-param="MinIntervalMs" type="number" min="0" step="100">
             <span class="hint">A change inside this time is held back and sent when it is over, so nothing is lost.</span></label>
-          <label>Empty scene after (s) <input data-param="ClearTimeoutSec" type="number" min="1"></label>
+          <label>Empty scene after no object for (s) <input data-param="ClearTimeoutSec" type="number" min="1"></label>
         </fieldset>
         <fieldset>
           <legend>Audio and motion events</legend>

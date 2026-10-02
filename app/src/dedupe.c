@@ -16,6 +16,7 @@ struct dedupe {
     GMutex lock;
     double move_threshold;
     bool publish_unclassified;
+    bool start_stop_only;  // only track appear/disappear (or class type change) counts
     gint64 min_interval_ms;
     GHashTable* published;  // track id -> track_t*, state of the last published frame
     gint64 last_publish_ms;
@@ -74,11 +75,16 @@ static double number_or(const json_t* obj, const char* key, double fallback) {
     return json_is_number(v) ? json_number_value(v) : fallback;
 }
 
-static track_t* track_from_detection(const json_t* detection) {
+static track_t* track_from_detection(const json_t* detection, bool type_only) {
     track_t* t = calloc(1, sizeof(*t));
-    json_t* c  = canonical(detection);
-    t->signature = json_dumps(c, JSON_COMPACT | JSON_SORT_KEYS);
-    json_decref(c);
+    if (type_only) {
+        const json_t* type = json_object_get(json_object_get(detection, "class"), "type");
+        t->signature       = strdup(json_is_string(type) ? json_string_value(type) : "");
+    } else {
+        json_t* c    = canonical(detection);
+        t->signature = json_dumps(c, JSON_COMPACT | JSON_SORT_KEYS);
+        json_decref(c);
+    }
 
     const json_t* box = json_object_get(detection, "bounding_box");
     if (json_is_object(box)) {
@@ -120,6 +126,10 @@ dedupe_t* dedupe_new(double move_threshold, int min_interval_ms, bool publish_un
     return d;
 }
 
+void dedupe_set_start_stop_only(dedupe_t* d, bool on) {
+    d->start_stop_only = on;
+}
+
 static void clear_pending(dedupe_t* d) {
     free(d->pending_json);
     d->pending_json = NULL;
@@ -152,7 +162,7 @@ static bool differs(const dedupe_t* d, GHashTable* current) {
         const track_t* prev = g_hash_table_lookup(d->published, k);
         if (prev == NULL || strcmp(prev->signature, cur->signature) != 0)
             return true;
-        if (hypot(cur->cx - prev->cx, cur->cy - prev->cy) > d->move_threshold)
+        if (!d->start_stop_only && hypot(cur->cx - prev->cx, cur->cy - prev->cy) > d->move_threshold)
             moved = true;
     }
     return moved;
@@ -182,7 +192,7 @@ bool dedupe_check(dedupe_t* d, const char* data, size_t len, gint64 now_ms) {
         char fallback[32];
         snprintf(fallback, sizeof(fallback), "#%zu", i);
         char* key = g_strdup(id != NULL ? id : fallback);
-        g_hash_table_replace(current, key, track_from_detection(det));
+        g_hash_table_replace(current, key, track_from_detection(det, d->start_stop_only));
     }
     json_decref(root);
 

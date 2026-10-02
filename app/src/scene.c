@@ -101,6 +101,7 @@ bool scene_start(const config_t* cfg) {
     mdb_error_t* error = NULL;
 
     dedupe           = dedupe_new(cfg->move_threshold, cfg->min_interval_ms, cfg->publish_unclassified);
+    dedupe_set_start_stop_only(dedupe, cfg->objects_start_stop);
     topic            = g_strdup(cfg->scene_topic);
     source           = g_strdup(cfg->scene_source);
     clear_timeout_ms = (gint64)cfg->clear_timeout_s * 1000;
