@@ -135,6 +135,7 @@ settings in use at every start.
 | `AudioEvents`, `MotionEvents` | audio: three topics, motion: `tns1:RuleEngine/MotionRegionDetector` | Comma separated event topics, e.g. `tns1:AudioSource/tnsaxis:TriggerLevel`. A level without namespace inherits the previous one. |
 | `EventKeys` | see `manifest.json` | Event keys copied into `data` (the event API cannot list keys) |
 
+## Status
 
 Compiles and links for aarch64 (AXIS OS SDK 12.11) and the de-duplication is unit
 tested. **Not yet verified on a camera.** In particular check in the log
