@@ -155,10 +155,38 @@ static void test_start_stop(void) {
     dedupe_free(d);
 }
 
+/* Sequence from a camera: the classifier drops out for single frames of a tracked person. */
+static char* same_track(const char* ts, bool classified) {
+    static char buf[2][1024];
+    static int n;
+    char* b = buf[n++ % 2];
+    snprintf(b, 1024,
+             "{\"frame\":{\"observations\":[{\"bounding_box\":{\"bottom\":0.6,\"left\":0.38,"
+             "\"right\":0.40,\"top\":0.5},%s\"timestamp\":\"%s\",\"track_id\":\"p1\"}],"
+             "\"operations\":[],\"timestamp\":\"%s\"}}",
+             classified ? "\"class\":{\"score\":0.7,\"type\":\"Human\"}," : "", ts, ts);
+    return b;
+}
+
+static void test_start_stop_classifier_dropout(void) {
+    dedupe_t* d = dedupe_new(0.05, 1000, false);
+    dedupe_set_start_stop_only(d, true);
+
+    assert(!check(d, same_track("t0", false), 0));        // not classified yet: nothing to report
+    assert(check(d, same_track("t1", true), 1000));       // start
+    assert(!check(d, same_track("t2", false), 2000));     // drop-out
+    assert(!check(d, same_track("t3", true), 3000));
+    assert(!check(d, same_track("t4", false), 4000));
+    assert(!dedupe_expired(d, 6000, 3000));               // drop-out frames keep the scene alive
+    assert(dedupe_expired(d, 7100, 3000));                // 3.1 s after the last frame
+    dedupe_free(d);
+}
+
 int main(void) {
     test_frame_v1();
     test_observations();
     test_start_stop();
+    test_start_stop_classifier_dropout();
     puts("dedupe: all tests passed");
     return 0;
 }

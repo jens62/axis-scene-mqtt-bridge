@@ -186,9 +186,24 @@ bool dedupe_check(dedupe_t* d, const char* data, size_t len, gint64 now_ms) {
     json_array_foreach(detections, i, det) {
         if (is_face(det))
             continue;
-        if (!d->publish_unclassified && json_object_get(det, "class") == NULL)
-            continue;
         const char* id = track_id_of(det);
+        if (!d->publish_unclassified && json_object_get(det, "class") == NULL) {
+            // The classifier drops out for a frame now and then. A track we already reported
+            // stays what it was, otherwise every drop-out would look like "gone" and "new again".
+            const track_t* known = NULL;
+            if (d->start_stop_only && id != NULL) {
+                g_mutex_lock(&d->lock);
+                known = g_hash_table_lookup(d->published, id);
+                if (known != NULL) {
+                    track_t* copy = calloc(1, sizeof(*copy));
+                    *copy = *known;
+                    copy->signature = strdup(known->signature);
+                    g_hash_table_replace(current, g_strdup(id), copy);
+                }
+                g_mutex_unlock(&d->lock);
+            }
+            continue;
+        }
         char fallback[32];
         snprintf(fallback, sizeof(fallback), "#%zu", i);
         char* key = g_strdup(id != NULL ? id : fallback);
