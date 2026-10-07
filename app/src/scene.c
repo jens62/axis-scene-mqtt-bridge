@@ -43,6 +43,17 @@ static void on_connection_error(const mdb_error_t* error, void* user_data) {
     abort();
 }
 
+/** Publishes a frame; an idle frame gets an explicit empty "detections" list. */
+static void publish_frame(const char* data, size_t size) {
+    char* normalized = dedupe_normalize(data, size);
+    if (normalized != NULL) {
+        mqtt_publish(OBJECTS_TOPIC, normalized, strlen(normalized), false);
+        g_free(normalized);
+    } else {
+        mqtt_publish(OBJECTS_TOPIC, data, size, false);
+    }
+}
+
 /** One frame from the camera, whichever transport it came by. Called from the transport's thread. */
 static void on_frame(const char* data, size_t size) {
     g_atomic_int_inc(&received_frames);
@@ -50,7 +61,7 @@ static void on_frame(const char* data, size_t size) {
         syslog(LOG_INFO, "First scene frame received");
     if (dedupe_check(dedupe, data, size, now_ms())) {
         g_atomic_int_inc(&published_frames);
-        mqtt_publish(OBJECTS_TOPIC, data, size, false);
+        publish_frame(data, size);
     }
 }
 
@@ -92,7 +103,7 @@ static gboolean check_scene_cleared(gpointer user_data) {
     char* pending = dedupe_take_pending(dedupe, now_ms());
     if (pending != NULL) {
         g_atomic_int_inc(&published_frames);
-        mqtt_publish(OBJECTS_TOPIC, pending, strlen(pending), false);
+        publish_frame(pending, strlen(pending));
         g_free(pending);
     }
     if (dedupe_expired(dedupe, now_ms(), clear_timeout_ms)) {

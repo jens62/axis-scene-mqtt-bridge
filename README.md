@@ -34,7 +34,9 @@ Developed against an AXIS M4228-LVE (aarch64, AXIS OS 12.x).
 * The camera sends nothing for an empty scene, so after `ClearTimeoutSec` without objects the app
   publishes `{"detections":[],"synthetic":true,...}`.
 
-The published payload is the camera's original JSON, untouched.
+The published payload is the camera's original JSON, with one exception: an idle frame
+(`{"channel_id":1,"timestamp":…}`, which is how `frame.v1` reports an empty scene) gets an explicit
+`"detections":[]`, so consumers need not treat a missing list as empty.
 
 Objects that have no `class` yet (fresh tracks before classification) do not count as a change,
 unless *Report objects that are not classified yet* is enabled. Faces arrive as their own objects
@@ -57,7 +59,7 @@ topic are deprecated, the Message Broker API is removed in AXIS OS 13. It stays 
 | `com.axis.radar.analytics_scene_description.v0.beta` | Message Broker | radar products only |
 
 A `SceneTopic` stored by an older version (the deprecated one) is replaced by `scene.frame.v1`
-when the transport is Device Data Hub; the log says so. Differences in `frame.v1`: heads are
+when the transport is Device Data Hub; the log says so and the new value is stored. Differences in `frame.v1`: heads are
 reported as `class.type = "Head"` (the filter ignores them like faces), a frame can carry
 `track_events` (e.g. `TrackEnded`, ignored), and `SceneSource` is the channel number.
 
@@ -125,7 +127,10 @@ settings to another camera or after a reinstall.
 Updating: upload the new `.eap` over the old one, the settings stay (parameters survive an
 update). The camera may refuse a package with the same version number as the installed one, so every
 build gets a new version in `app/manifest.json`. The log shows the installed version and the
-settings in use at every start.
+settings in use at every start. A change notification that carries the value already in use
+(the camera sends one for every parameter after an update) does not restart the app; the log says
+`notified with the value in use, ignored`. Because the stored settings survive an update, new
+factory defaults only apply to new parameters or after *Reset to defaults*.
 
 ### Parameters
 

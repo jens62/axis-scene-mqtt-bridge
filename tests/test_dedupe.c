@@ -243,10 +243,31 @@ static void test_frame_v1_dh(void) {
     dedupe_free(d);
 }
 
+static void test_normalize(void) {
+    const char* idle = "{\"channel_id\":1,\"timestamp\":\"t\"}";
+    char* n          = dedupe_normalize(idle, strlen(idle));
+    assert(n != NULL && strcmp(n, "{\"channel_id\":1,\"timestamp\":\"t\",\"detections\":[]}") == 0);
+    g_free(n);
+    // An idle frame that also ends a track keeps its other fields.
+    const char* ended = "{\"channel_id\":1,\"timestamp\":\"t\",\"track_events\":[{\"object_track_id\":\"a\","
+                        "\"type\":\"TrackEnded\"}]}";
+    n = dedupe_normalize(ended, strlen(ended));
+    assert(n != NULL && strstr(n, "\"detections\":[]") != NULL && strstr(n, "TrackEnded") != NULL);
+    g_free(n);
+    // Frames with a list, the old format, other JSON and garbage stay as they are.
+    const char* full = "{\"detections\":[],\"timestamp\":\"t\"}";
+    assert(dedupe_normalize(full, strlen(full)) == NULL);
+    const char* old = "{\"frame\":{\"observations\":[]},\"timestamp\":\"t\"}";
+    assert(dedupe_normalize(old, strlen(old)) == NULL);
+    assert(dedupe_normalize("{\"foo\":1}", strlen("{\"foo\":1}")) == NULL);
+    assert(dedupe_normalize("garbage", 7) == NULL);
+}
+
 int main(void) {
     test_frame_v1();
     test_observations();
     test_start_stop();
+    test_normalize();
     test_frame_v1_dh();
     test_start_stop_classifier_dropout();
     puts("dedupe: all tests passed");

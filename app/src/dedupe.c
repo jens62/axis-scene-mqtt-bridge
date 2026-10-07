@@ -180,6 +180,24 @@ static bool differs(const dedupe_t* d, GHashTable* current) {
     return moved;
 }
 
+char* dedupe_normalize(const char* data, size_t len) {
+    json_t* root = json_loadb(data, len, 0, NULL);
+    if (root == NULL)
+        return NULL;
+    char* out = NULL;
+    if (json_is_object(root) && json_is_string(json_object_get(root, "timestamp")) &&
+        json_object_get(root, "detections") == NULL && json_object_get(root, "frame") == NULL) {
+        json_object_set_new(root, "detections", json_array());
+        char* dumped = json_dumps(root, JSON_COMPACT | JSON_PRESERVE_ORDER);
+        if (dumped != NULL) {
+            out = g_strdup(dumped);
+            free(dumped);
+        }
+    }
+    json_decref(root);
+    return out;
+}
+
 bool dedupe_check(dedupe_t* d, const char* data, size_t len, gint64 now_ms) {
     json_error_t err;
     json_t* root = json_loadb(data, len, 0, &err);

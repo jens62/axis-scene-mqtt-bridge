@@ -34,6 +34,13 @@ void dedupe_set_start_stop_only(dedupe_t* d, bool on);
 
 void dedupe_free(dedupe_t* d);
 
+/**
+ * An idle frame of com.axis.scene.frame.v1 has no object list ({"channel_id":..,"timestamp":..}).
+ * Returns a copy with an explicit "detections":[] for consumers, or NULL if the frame needs no
+ * change (anything else is published as it came). Free with g_free().
+ */
+char* dedupe_normalize(const char* json, size_t len);
+
 /** True if the frame should be published now. now_ms is a monotonic clock. */
 bool dedupe_check(dedupe_t* d, const char* json, size_t len, gint64 now_ms);
 

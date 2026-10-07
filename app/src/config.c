@@ -95,6 +95,12 @@ bool config_load(AXParameter* handle, config_t* cfg) {
                             "using com.axis.scene.frame.v1", cfg->scene_topic);
         g_free(cfg->scene_topic);
         cfg->scene_topic = g_strdup("com.axis.scene.frame.v1");
+        // Store it, so the settings page shows what is used and the warning does not repeat.
+        GError* error = NULL;
+        if (!ax_parameter_set(handle, "SceneTopic", cfg->scene_topic, TRUE, &error)) {
+            syslog(LOG_WARNING, "Cannot store SceneTopic: %s", error->message);
+            g_clear_error(&error);
+        }
     }
     cfg->scene_source    = get_string(handle, "SceneSource");
     cfg->objects_start_stop = get_bool(handle, "ObjectsStartStopOnly");
