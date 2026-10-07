@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <syslog.h>
+#include <unistd.h>
 
 #include "config.h"
 #include "events.h"
@@ -25,6 +26,18 @@ static gboolean quit_for_restart(gpointer user_data) {
     (void)user_data;
     g_main_loop_quit(loop);
     return G_SOURCE_REMOVE;
+}
+
+/**
+ * Shutdown must never hang: a process that neither works nor exits is not restarted by the
+ * camera. If cleaning up takes too long, leave with an error code so that it is respawned.
+ */
+static gpointer shutdown_watchdog(gpointer user_data) {
+    (void)user_data;
+    g_usleep(5 * G_USEC_PER_SEC);
+    syslog(LOG_ERR, "Shutdown did not finish within 5 s, exiting");
+    _exit(EXIT_FAILURE);
+    return NULL;
 }
 
 static GHashTable* loaded_values;  // parameter name -> value this run was started with
@@ -103,9 +116,14 @@ int main(void) {
 
     g_main_loop_run(loop);
 
+    syslog(LOG_INFO, "Shutting down");
+    g_thread_unref(g_thread_new("watchdog", shutdown_watchdog, NULL));
     events_stop();
+    syslog(LOG_INFO, "Event subscriptions closed");
     scene_stop();
+    syslog(LOG_INFO, "Scene subscription closed");
     mqtt_stop();
+    syslog(LOG_INFO, "MQTT closed");
     g_main_loop_unref(loop);
     config_free(&cfg);
     ax_parameter_free(handle);

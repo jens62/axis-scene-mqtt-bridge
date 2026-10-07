@@ -8,7 +8,7 @@
             "vendorId": "1234567890",
             "vendorUrl": "https://github.com/jens62/axis-scene-mqtt-bridge",
             "runMode": "respawn",
-            "version": "0.4.1",
+            "version": "0.4.2",
             "compatibleOsVersions": [
                 {
                     "max": "13"
