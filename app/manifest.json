@@ -8,7 +8,7 @@
             "vendorId": "1234567890",
             "vendorUrl": "https://github.com/jens62/axis-scene-mqtt-bridge",
             "runMode": "respawn",
-            "version": "0.4.3",
+            "version": "0.4.4",
             "compatibleOsVersions": [
                 {
                     "max": "13"
@@ -48,7 +48,7 @@
                 },
                 {
                     "name": "EventKeys",
-                    "default": "AudioSource,Detected,channel,triggered,active,state,State,IsMotion,port,Value,VideoSourceConfigurationToken,Rule,RuleName,Name",
+                    "default": "AudioSource,Detected,channel,triggered,active,state,State,IsMotion,port,Value,VideoSourceConfigurationToken,Rule,RuleName,Name,Species,Score",
                     "type": "string"
                 }
             ]

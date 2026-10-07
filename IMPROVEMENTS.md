@@ -19,5 +19,19 @@ Open: manifest permission for the VAPIX account, behaviour when the camera clien
 - TLS for the broker connection (libmosquitto is currently built without TLS).
 - Fewer duplicate motion messages by default: `…/VMD/Camera1ProfileANY` and `…/Camera1Profile1` and
   `RuleEngine/MotionRegionDetector` fire together (see README, `MotionEvents`).
-- Verify on newer AXIS OS whether `com.axis.scene.frame.v1` becomes readable for apps.
 - Show the app status (connected, frames per minute) on the settings page.
+
+## Dedicated `animal/` category
+The events of `axis-animal-detector` (`tnsaxis:AnimalDetector/<Species>`, data `Detected`, `Species`,
+`Score`) are published under `motion/AnimalDetector/…` because the bridge only knows the categories
+audio and motion, and they share `MotionHoldSec`. Idea: a third category with its own setting
+(`AnimalEvents`), its own hold time and the path `animal/<Species>`.
+
+## Animals in `bridge/objects`
+Idea: subscribe to a topic of the animal detector with boxes and scores (see its IMPROVEMENTS.md) and
+publish animals on `objects` like the camera's own detections.
+
+## Event keys after an update
+New keys in the default `EventKeys` (e.g. `Species`, `Score`) do not reach a camera that keeps its
+stored value. Idea: merge new default keys into the stored list at start (and say so in the log).
+
