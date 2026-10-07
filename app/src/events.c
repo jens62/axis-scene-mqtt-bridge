@@ -222,9 +222,10 @@ bool events_start(const config_t* cfg) {
 void events_stop(void) {
     if (handler == NULL)
         return;
-    for (guint i = 0; i < subscriptions->len; i++)
-        ax_event_handler_unsubscribe(handler, g_array_index(subscriptions, guint, i), NULL);
-    ax_event_handler_free(handler);
+    // No ax_event_handler_unsubscribe()/_free() here: events_stop() runs after the main loop has
+    // ended and the event library needs that loop to finish them, so they hang (seen on the camera,
+    // the watchdog in main.c had to kill the app). The process is about to exit, which closes the
+    // subscriptions anyway.
     handler = NULL;
     hold_free(audio_holds);
     hold_free(motion_holds);
