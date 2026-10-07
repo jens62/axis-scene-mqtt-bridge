@@ -6,7 +6,7 @@ DEBUG_DIR = debug
 MOSQUITTO_PREFIX ?= /opt/mosquitto
 APP_VERSION      = $(shell jq -r '.acapPackageConf.setup.version' manifest.json)
 
-PKGS = glib-2.0 gio-2.0 axevent axparameter mdb jansson
+PKGS = glib-2.0 gio-2.0 axevent axparameter mdb jansson device-data-hub-client-c
 
 CFLAGS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) pkg-config --cflags $(PKGS))
 CFLAGS += -I$(MOSQUITTO_PREFIX)/include -DAPP_VERSION='"$(APP_VERSION)"'

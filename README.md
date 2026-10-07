@@ -38,19 +38,27 @@ The published payload is the camera's original JSON, untouched.
 
 Objects that have no `class` yet (fresh tracks before classification) do not count as a change,
 unless *Report objects that are not classified yet* is enabled. Faces arrive as their own objects
-(`class.type = "Face"`), not linked to a person.
+(`class.type = "Face"`, "Head" in `frame.v1`), not linked to a person.
 
-### Which scene topic?
+### Which scene topic and transport?
 
-The camera only lets apps read three message broker topics (see the install log lines
-"Adding … to list of topics that are allowed to consume"). `SceneTopic` is a pull-down:
+Since 0.4.0 the scene frames come through **Device Data Hub** (`SceneTransport=devicedatahub`,
+stable from AXIS OS 12.11). The Message Broker API and the `analytics_scene_description.v0.beta`
+topic are deprecated, the Message Broker API is removed in AXIS OS 13. It stays selectable
+(`SceneTransport=messagebroker`) for now. `SceneTopic` is a pull-down:
 
-| Topic | Use |
-|---|---|
-| `com.axis.analytics_scene_description.v0.beta` (default) | objects per frame with `class`, clothing/vehicle colours, bounding box |
-| `com.axis.consolidated_track.v1.beta` | one summary per object (not run through the change filter) |
-| `com.axis.radar.analytics_scene_description.v0.beta` | radar products only |
-| `com.axis.scene.frame.v1` | not on the allow-list for apps on the tested firmware; the camera's own MQTT publisher can send it |
+| Topic | Transport | Use |
+|---|---|---|
+| `com.axis.scene.frame.v1` (default) | Device Data Hub | objects per frame (`detections`) with `class`, clothing colours, bounding box; an idle frame with only `timestamp` every 2 s while the scene is empty |
+| `com.axis.scene.object_track.v1` | Device Data Hub | one summary per finished track, arrives late (about 20 s for people); not run through the change filter |
+| `com.axis.analytics_scene_description.v0.beta` | Message Broker | the previous default, deprecated |
+| `com.axis.consolidated_track.v1.beta` | Message Broker | deprecated |
+| `com.axis.radar.analytics_scene_description.v0.beta` | Message Broker | radar products only |
+
+A `SceneTopic` stored by an older version (the deprecated one) is replaced by `scene.frame.v1`
+when the transport is Device Data Hub; the log says so. Differences in `frame.v1`: heads are
+reported as `class.type = "Head"` (the filter ignores them like faces), a frame can carry
+`track_events` (e.g. `TrackEnded`, ignored), and `SceneSource` is the channel number.
 
 Hold time: the camera's classifiers and motion detectors switch on and off in short bursts.
 With `AudioHoldSec` / `MotionHoldSec` (default 5 each) the first "on" (`Detected`, `triggered`,
@@ -125,7 +133,8 @@ settings in use at every start.
 | `MqttHost`, `MqttPort`, `MqttUser`, `MqttPassword` | – / 1883 | Broker. The app idles while `MqttHost` is empty. |
 | `TopicPrefix` | `axis/<serial>/bridge` | Topic prefix |
 | `PublishObjects`, `PublishAudio`, `PublishMotion` | yes | Switch sources on/off |
-| `SceneTopic`, `SceneSource` | `com.axis.analytics_scene_description.v0.beta`, `1` | Message broker topic (pull-down) and channel |
+| `SceneTransport` | `devicedatahub` | `devicedatahub` or `messagebroker` (deprecated) |
+| `SceneTopic`, `SceneSource` | `com.axis.scene.frame.v1`, `1` | Scene topic (pull-down) and channel |
 | `AudioHoldSec`, `MotionHoldSec` | 5 | Merge on/off bursts into one episode, 0 = off |
 | `PublishUnclassified` | no | Objects without a class count as a change |
 | `ObjectsStartStopOnly` | yes | Objects behave like a motion detector: one message when an object appears, an empty scene when none was seen for `ClearTimeoutSec`. Movement and attribute changes (clothing colours flicker) are ignored. |

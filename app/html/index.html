@@ -56,14 +56,20 @@
         </fieldset>
         <fieldset>
           <legend>Sources</legend>
+          <label>Scene transport
+            <select data-param="SceneTransport">
+              <option value="devicedatahub">Device Data Hub (recommended)</option>
+              <option value="messagebroker">Message Broker (deprecated, removed in AXIS OS 13)</option>
+            </select></label>
           <label>Scene topic
             <select data-param="SceneTopic">
-              <option value="com.axis.analytics_scene_description.v0.beta">analytics_scene_description.v0.beta – objects per frame, class and colours</option>
-              <option value="com.axis.consolidated_track.v1.beta">consolidated_track.v1.beta – one summary per finished track</option>
-              <option value="com.axis.radar.analytics_scene_description.v0.beta">radar.analytics_scene_description.v0.beta – radar products only</option>
-              <option value="com.axis.scene.frame.v1">scene.frame.v1 – not available to apps on all AXIS OS versions</option>
+              <option value="com.axis.scene.frame.v1">scene.frame.v1 – objects per frame, class and colours (Device Data Hub)</option>
+              <option value="com.axis.scene.object_track.v1">scene.object_track.v1 – one summary per finished track, arrives late (Device Data Hub)</option>
+              <option value="com.axis.analytics_scene_description.v0.beta">analytics_scene_description.v0.beta – deprecated (Message Broker only)</option>
+              <option value="com.axis.consolidated_track.v1.beta">consolidated_track.v1.beta – deprecated (Message Broker only)</option>
+              <option value="com.axis.radar.analytics_scene_description.v0.beta">radar.analytics_scene_description.v0.beta – radar products only (Message Broker)</option>
             </select>
-            <span class="hint">Only the first three are on the camera's allow-list for apps on AXIS OS 12.x.</span></label>
+            <span class="hint">With Device Data Hub use the first two. A stored deprecated topic is replaced by scene.frame.v1.</span></label>
           <label>Scene source (channel) <input data-param="SceneSource" type="text"></label>
           <label>Audio events <textarea data-param="AudioEvents" rows="3"></textarea></label>
           <div class="choices">

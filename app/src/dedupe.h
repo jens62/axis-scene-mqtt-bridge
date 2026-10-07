@@ -14,7 +14,8 @@
  * of {name, score} count with their best entry only):
  *  - a classified object appeared/disappeared or its attributes changed -> change
  *  - an object moved further than move_threshold (normalized image units) -> change
- * Objects without a "class" are ignored unless publish_unclassified is set. Faces ("Face") never
+ * A frame with only "timestamp" (no list) is an empty scene. Objects without a "class" are ignored
+ * unless publish_unclassified is set. Faces ("Face", "Head" in frame.v1) never
  * cause a change by themselves; they are part of whatever frame is published.
  *
  * At most one frame per min_interval_ms is published. A change that happens inside the interval is

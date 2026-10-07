@@ -96,7 +96,9 @@ static track_t* track_from_detection(const json_t* detection, bool type_only) {
 
 static bool is_face(const json_t* object) {
     const json_t* type = json_object_get(json_object_get(object, "class"), "type");
-    return json_is_string(type) && strcmp(json_string_value(type), "Face") == 0;
+    // "Face" in analytics_scene_description, "Head" in com.axis.scene.frame.v1
+    return json_is_string(type) && (strcmp(json_string_value(type), "Face") == 0 ||
+                                    strcmp(json_string_value(type), "Head") == 0);
 }
 
 /** The list of objects, whichever message format the camera uses. NULL if this is no scene frame. */
@@ -105,7 +107,17 @@ static json_t* object_list(json_t* root) {
     if (json_is_array(list))
         return list;
     list = json_object_get(json_object_get(root, "frame"), "observations");
-    return json_is_array(list) ? list : NULL;
+    if (json_is_array(list))
+        return list;
+    // com.axis.scene.frame.v1 sends {"channel_id":..,"timestamp":..} every 2 s while the scene is
+    // empty: that is an empty object list, not something we do not understand.
+    if (json_is_object(root) && json_is_string(json_object_get(root, "timestamp")) &&
+        json_object_get(root, "detections") == NULL && json_object_get(root, "frame") == NULL) {
+        json_t* empty = json_array();
+        json_object_set_new(root, "detections", empty);
+        return empty;
+    }
+    return NULL;
 }
 
 static const char* track_id_of(const json_t* object) {

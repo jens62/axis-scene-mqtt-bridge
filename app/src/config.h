@@ -16,6 +16,7 @@ typedef struct {
     bool publish_audio;
     bool publish_motion;
     bool publish_unclassified;  // objects without a class count as a change
+    char* scene_transport;  // "devicedatahub" (default) or "messagebroker" (deprecated)
     char* scene_topic;
     char* scene_source;
     bool objects_start_stop;  // objects: only appear/disappear, no movement or attribute updates

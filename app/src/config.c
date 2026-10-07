@@ -81,7 +81,21 @@ bool config_load(AXParameter* handle, config_t* cfg) {
     cfg->publish_audio   = get_bool(handle, "PublishAudio");
     cfg->publish_motion  = get_bool(handle, "PublishMotion");
     cfg->publish_unclassified = get_bool(handle, "PublishUnclassified");
+    cfg->scene_transport = get_string(handle, "SceneTransport");
+    if (strcmp(cfg->scene_transport, "messagebroker") != 0) {
+        g_free(cfg->scene_transport);
+        cfg->scene_transport = g_strdup("devicedatahub");
+    }
     cfg->scene_topic     = get_string(handle, "SceneTopic");
+    // The deprecated topic only exists in the Message Broker. A setting stored by an older version
+    // would make the Device Data Hub subscription fail, so use its successor instead.
+    if (strcmp(cfg->scene_transport, "devicedatahub") == 0 &&
+        strcmp(cfg->scene_topic, "com.axis.analytics_scene_description.v0.beta") == 0) {
+        syslog(LOG_WARNING, "SceneTopic %s is deprecated and not available in Device Data Hub, "
+                            "using com.axis.scene.frame.v1", cfg->scene_topic);
+        g_free(cfg->scene_topic);
+        cfg->scene_topic = g_strdup("com.axis.scene.frame.v1");
+    }
     cfg->scene_source    = get_string(handle, "SceneSource");
     cfg->objects_start_stop = get_bool(handle, "ObjectsStartStopOnly");
     cfg->move_threshold  = get_double(handle, "MoveThreshold", 0.05);
@@ -100,6 +114,7 @@ void config_free(config_t* cfg) {
     g_free(cfg->mqtt_user);
     g_free(cfg->mqtt_password);
     g_free(cfg->topic_prefix);
+    g_free(cfg->scene_transport);
     g_free(cfg->scene_topic);
     g_free(cfg->scene_source);
     g_free(cfg->audio_events);
@@ -115,7 +130,8 @@ void config_log(const config_t* cfg) {
     syslog(LOG_INFO, "Publish: objects %s, audio %s, motion %s, unclassified objects %s",
            cfg->publish_objects ? "yes" : "no", cfg->publish_audio ? "yes" : "no",
            cfg->publish_motion ? "yes" : "no", cfg->publish_unclassified ? "yes" : "no");
-    syslog(LOG_INFO, "Scene topic %s, source %s", cfg->scene_topic, cfg->scene_source);
+    syslog(LOG_INFO, "Scene transport %s, topic %s, source (channel) %s", cfg->scene_transport,
+           cfg->scene_topic, cfg->scene_source);
     syslog(LOG_INFO, "Objects: %s", cfg->objects_start_stop ? "start/stop only" : "also movement and attribute changes");
     syslog(LOG_INFO, "Move threshold %.3f, min interval %d ms, empty scene after %d s",
            cfg->move_threshold, cfg->min_interval_ms, cfg->clear_timeout_s);

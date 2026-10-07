@@ -182,10 +182,72 @@ static void test_start_stop_classifier_dropout(void) {
     dedupe_free(d);
 }
 
+/* ---- com.axis.scene.frame.v1 as received over Device Data Hub (shapes from a capture) ---- */
+
+static void test_frame_v1_dh(void) {
+    const char* idle = "{\"channel_id\":1,\"timestamp\":\"2026-10-07T08:02:24.823405Z\"}";
+    const char* idle2 = "{\"channel_id\":1,\"timestamp\":\"2026-10-07T08:02:26.923413Z\"}";
+    const char* noise =  /* tracked, not classified yet */
+        "{\"channel_id\":1,\"detections\":[{\"bounding_box\":{\"bottom\":0.57,\"left\":0.12,"
+        "\"right\":0.19,\"top\":0.29},\"object_track_id\":\"432a\"}],\"timestamp\":\"t1\"}";
+    const char* human_red =
+        "{\"channel_id\":1,\"detections\":[{\"bounding_box\":{\"bottom\":0.58,\"left\":0.13,"
+        "\"right\":0.20,\"top\":0.23},\"class\":{\"lower_clothing_colors\":[{\"name\":\"blue\","
+        "\"score\":0.69}],\"score\":0.87,\"type\":\"Human\",\"upper_clothing_colors\":[{\"name\":"
+        "\"red\",\"score\":0.45},{\"name\":\"blue\",\"score\":0.35}]},\"object_track_id\":\"432a\"}],"
+        "\"timestamp\":\"t2\"}";
+    const char* human_blue =  /* same person, the colour list flips */
+        "{\"channel_id\":1,\"detections\":[{\"bounding_box\":{\"bottom\":0.60,\"left\":0.15,"
+        "\"right\":0.23,\"top\":0.22},\"class\":{\"lower_clothing_colors\":[{\"name\":\"blue\","
+        "\"score\":0.69}],\"score\":0.88,\"type\":\"Human\",\"upper_clothing_colors\":[{\"name\":"
+        "\"blue\",\"score\":0.43},{\"name\":\"red\",\"score\":0.40}]},\"object_track_id\":\"432a\"}],"
+        "\"timestamp\":\"t3\"}";
+    const char* with_head =  /* the head is a second track of type "Head" */
+        "{\"channel_id\":1,\"detections\":[{\"bounding_box\":{\"bottom\":0.60,\"left\":0.15,"
+        "\"right\":0.23,\"top\":0.22},\"class\":{\"lower_clothing_colors\":[{\"name\":\"blue\",\"score\":0.69}],\"score\":0.88,\"type\":\"Human\",\"upper_clothing_colors\":[{\"name\":\"blue\",\"score\":0.43},{\"name\":\"red\",\"score\":0.40}]},"
+        "\"object_track_id\":\"432a\"},{\"bounding_box\":{\"bottom\":0.28,\"left\":0.19,"
+        "\"right\":0.22,\"top\":0.22},\"class\":{\"face_visible\":0.7,\"score\":0.89,\"type\":"
+        "\"Head\"},\"object_track_id\":\"b153\"}],\"timestamp\":\"t4\"}";
+    const char* head_ended =
+        "{\"channel_id\":1,\"detections\":[{\"bounding_box\":{\"bottom\":0.60,\"left\":0.15,"
+        "\"right\":0.23,\"top\":0.22},\"class\":{\"lower_clothing_colors\":[{\"name\":\"blue\",\"score\":0.69}],\"score\":0.88,\"type\":\"Human\",\"upper_clothing_colors\":[{\"name\":\"blue\",\"score\":0.43},{\"name\":\"red\",\"score\":0.40}]},"
+        "\"object_track_id\":\"432a\"}],\"timestamp\":\"t5\",\"track_events\":[{\"object_track_id\":"
+        "\"b153\",\"type\":\"TrackEnded\"}]}";
+
+    dedupe_t* d = dedupe_new(10.0, 0, false);
+    dedupe_set_start_stop_only(d, true);
+
+    // The idle heartbeat every 2 s is an empty scene, never a message of its own.
+    assert(!check(d, idle, 0));
+    assert(!check(d, idle2, 2000));
+    assert(!check(d, noise, 2500));                        // not classified yet
+    assert(check(d, human_red, 2600));                     // the person is classified: start
+    assert(!check(d, human_blue, 2700));                   // colours flip, the person moves
+    assert(!check(d, with_head, 2800));                    // a head track appears: no change
+    assert(!check(d, head_ended, 2900));                   // and ends: no change
+    assert(!check(d, human_blue, 3000));
+    assert(check(d, idle, 3100));                          // the person is gone: stop
+    assert(!check(d, idle2, 5100));                        // heartbeats again: quiet
+    assert(!dedupe_expired(d, 6000, 3000));                // already announced as empty
+    dedupe_free(d);
+
+    // Classic mode: heartbeats and heads are just as quiet, a changed attribute still counts.
+    d = dedupe_new(10.0, 0, false);
+    assert(!check(d, idle, 0));
+    assert(check(d, human_red, 100));
+    assert(check(d, human_blue, 200));                     // upper colour changed
+    assert(!check(d, with_head, 300));
+    assert(!check(d, head_ended, 400));
+    assert(check(d, idle, 500));
+    assert(!check(d, idle2, 2500));
+    dedupe_free(d);
+}
+
 int main(void) {
     test_frame_v1();
     test_observations();
     test_start_stop();
+    test_frame_v1_dh();
     test_start_stop_classifier_dropout();
     puts("dedupe: all tests passed");
     return 0;
