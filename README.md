@@ -43,7 +43,7 @@ unless *Report objects that are not classified yet* is enabled. Faces arrive as 
 ### Which scene topic and transport?
 
 Since 0.4.0 the scene frames come through **Device Data Hub** (`SceneTransport=devicedatahub`,
-stable from AXIS OS 12.11). The Message Broker API and the `analytics_scene_description.v0.beta`
+stable from AXIS OS 12.11; the package then needs 12.11.72 or newer). The Message Broker API and the `analytics_scene_description.v0.beta`
 topic are deprecated, the Message Broker API is removed in AXIS OS 13. It stays selectable
 (`SceneTransport=messagebroker`) for now. `SceneTopic` is a pull-down:
 

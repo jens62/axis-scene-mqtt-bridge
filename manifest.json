@@ -1,0 +1,136 @@
+{
+    "schemaVersion": "2.2.0",
+    "resources": {
+        "deviceDataHub": {
+            "enabled": true
+        }
+    },
+    "acapPackageConf": {
+        "setup": {
+            "friendlyName": "Scene MQTT Bridge",
+            "appName": "axis_scene_mqtt_bridge",
+            "vendor": "jens62",
+            "vendorId": "1234567890",
+            "vendorUrl": "https://github.com/jens62/axis-scene-mqtt-bridge",
+            "runMode": "respawn",
+            "version": "0.4.0",
+            "compatibleOsVersions": [
+                {
+                    "min": "12.11",
+                    "max": "13"
+                }
+            ],
+            "architecture": "aarch64"
+        },
+        "configuration": {
+            "settingPage": "index.html",
+            "paramConfig": [
+                {
+                    "name": "MqttHost",
+                    "default": "",
+                    "type": "string"
+                },
+                {
+                    "name": "MqttPort",
+                    "default": "1883",
+                    "type": "string"
+                },
+                {
+                    "name": "MqttUser",
+                    "default": "",
+                    "type": "string"
+                },
+                {
+                    "name": "MqttPassword",
+                    "default": "",
+                    "type": "string"
+                },
+                {
+                    "name": "TopicPrefix",
+                    "default": "",
+                    "type": "string"
+                },
+                {
+                    "name": "PublishObjects",
+                    "default": "yes",
+                    "type": "bool:no,yes"
+                },
+                {
+                    "name": "PublishAudio",
+                    "default": "yes",
+                    "type": "bool:no,yes"
+                },
+                {
+                    "name": "PublishMotion",
+                    "default": "yes",
+                    "type": "bool:no,yes"
+                },
+                {
+                    "name": "PublishUnclassified",
+                    "default": "no",
+                    "type": "bool:no,yes"
+                },
+                {
+                    "name": "SceneTransport",
+                    "default": "devicedatahub",
+                    "type": "string"
+                },
+                {
+                    "name": "SceneTopic",
+                    "default": "com.axis.scene.frame.v1",
+                    "type": "string"
+                },
+                {
+                    "name": "SceneSource",
+                    "default": "1",
+                    "type": "string"
+                },
+                {
+                    "name": "ObjectsStartStopOnly",
+                    "default": "yes",
+                    "type": "bool:no,yes"
+                },
+                {
+                    "name": "MoveThreshold",
+                    "default": "0.15",
+                    "type": "string"
+                },
+                {
+                    "name": "MinIntervalMs",
+                    "default": "3000",
+                    "type": "string"
+                },
+                {
+                    "name": "ClearTimeoutSec",
+                    "default": "3",
+                    "type": "string"
+                },
+                {
+                    "name": "AudioHoldSec",
+                    "default": "5",
+                    "type": "string"
+                },
+                {
+                    "name": "MotionHoldSec",
+                    "default": "5",
+                    "type": "string"
+                },
+                {
+                    "name": "AudioEvents",
+                    "default": "tnsaxis:AudioClassification, tnsaxis:AdaptiveAudioDetection, tns1:AudioSource/tnsaxis:TriggerLevel",
+                    "type": "string"
+                },
+                {
+                    "name": "MotionEvents",
+                    "default": "tns1:RuleEngine/MotionRegionDetector",
+                    "type": "string"
+                },
+                {
+                    "name": "EventKeys",
+                    "default": "AudioSource,Detected,channel,triggered,active,state,State,IsMotion,port,Value,VideoSourceConfigurationToken,Rule,RuleName,Name",
+                    "type": "string"
+                }
+            ]
+        }
+    }
+}
