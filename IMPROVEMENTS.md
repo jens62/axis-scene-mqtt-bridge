@@ -35,3 +35,8 @@ publish animals on `objects` like the camera's own detections.
 New keys in the default `EventKeys` (e.g. `Species`, `Score`) do not reach a camera that keeps its
 stored value. Idea: merge new default keys into the stored list at start (and say so in the log).
 
+## Retained state messages
+State events (`active` true/false, e.g. `…/AnimalDetector/Any`) are published without the retain flag, so a
+subscriber that starts later (openHAB after a restart) does not know the current state until the next change.
+Idea: publish stateful event messages retained, the pulse-like ones (e.g. `AnimalDetector/Detection`) not.
+
